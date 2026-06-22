@@ -1,14 +1,142 @@
-import { calculateSplit, SplitValidationError } from '@splitmate/shared';
-import { Expense } from '../models/Expense.js';
-import { Group } from '../models/Group.js';
-import { Membership } from '../models/Membership.js';
-import { AppError, asyncHandler } from '../lib/errors.js';
-import { ok } from '../lib/http.js';
-import { membershipFor } from '../services/access.service.js';
-import { recordActivity } from '../services/activity.service.js';
+import { calculateSplit, SplitValidationError } from "@splitmate/shared";
+import { Expense } from "../models/Expense.js";
+import { Group } from "../models/Group.js";
+import { Membership } from "../models/Membership.js";
+import { AppError, asyncHandler } from "../lib/errors.js";
+import { ok } from "../lib/http.js";
+import { membershipFor } from "../services/access.service.js";
+import { recordActivity } from "../services/activity.service.js";
 
-async function materialize(req: any) { const group = await Group.findById(req.params.groupId); if (!group) throw new AppError(404, 'Group not found.', 'NOT_FOUND'); if (group.archived) throw new AppError(409, 'Archived groups are read-only.', 'GROUP_ARCHIVED'); const active = await Membership.find({ groupId: group._id, status: 'active' }).lean(); const ids = new Set(active.map((member) => String(member.userId))); if (!ids.has(req.body.paidBy) || req.body.participants.some((participant: any) => !ids.has(participant.userId))) throw new AppError(422, 'Payer and participants must be active group members.', 'INVALID_MEMBER'); try { return { ...req.body, currency: group.currency, participants: calculateSplit(req.body.amountMinor, req.body.splitType, req.body.participants) }; } catch (error) { if (error instanceof SplitValidationError) throw new AppError(422, error.message, 'INVALID_SPLIT'); throw error; } }
-export const listExpenses = asyncHandler(async (req, res) => { const id = String(req.params.groupId); await membershipFor(req, id); const query: Record<string, unknown> = { groupId: id, deletedAt: { $exists: false } }; if (req.query.search) query.title = { $regex: String(req.query.search), $options: 'i' }; if (req.query.category) query.category = req.query.category; if (req.query.paidBy) query.paidBy = req.query.paidBy; const expenses = await Expense.find(query).populate('paidBy', 'name avatarColor').populate('participants.userId', 'name avatarColor').sort({ expenseDate: -1, createdAt: -1 }).limit(Math.min(Number(req.query.limit) || 100, 200)); ok(res, { expenses }); });
-export const createExpense = asyncHandler(async (req, res) => { const id = String(req.params.groupId); await membershipFor(req, id); const payload = await materialize(req); const expense = await Expense.create({ ...payload, groupId: id, createdBy: req.auth!.userId, updatedBy: req.auth!.userId }); await recordActivity(id, req.auth!.userId, 'expense.created', `Added ${expense.title}`, { expenseId: String(expense._id) }); ok(res, { expense }, 201); });
-export const updateExpense = asyncHandler(async (req, res) => { const id = String(req.params.groupId); const actor = await membershipFor(req, id); const expense = await Expense.findOne({ _id: String(req.params.expenseId), groupId: id, deletedAt: { $exists: false } }); if (!expense) throw new AppError(404, 'Expense not found.', 'NOT_FOUND'); if (String(expense.createdBy) !== req.auth!.userId && !['owner', 'admin'].includes(actor.role)) throw new AppError(403, 'Only the creator or an admin can edit this expense.', 'FORBIDDEN'); req.body = { ...expense.toObject(), ...req.body }; const payload = await materialize(req); Object.assign(expense, payload, { updatedBy: req.auth!.userId }); await expense.save(); await recordActivity(id, req.auth!.userId, 'expense.updated', `Updated ${expense.title}`, { expenseId: String(expense._id) }); ok(res, { expense }); });
-export const deleteExpense = asyncHandler(async (req, res) => { const id = String(req.params.groupId); const actor = await membershipFor(req, id); const expense = await Expense.findOne({ _id: String(req.params.expenseId), groupId: id, deletedAt: { $exists: false } }); if (!expense) throw new AppError(404, 'Expense not found.', 'NOT_FOUND'); if (String(expense.createdBy) !== req.auth!.userId && !['owner', 'admin'].includes(actor.role)) throw new AppError(403, 'Only the creator or an admin can delete this expense.', 'FORBIDDEN'); expense.deletedAt = new Date(); await expense.save(); await recordActivity(id, req.auth!.userId, 'expense.deleted', `Deleted ${expense.title}`); ok(res, { deleted: true }); });
+async function materialize(req: any) {
+  const group = await Group.findById(req.params.groupId);
+  if (!group) throw new AppError(404, "Group not found.", "NOT_FOUND");
+  if (group.archived)
+    throw new AppError(409, "Archived groups are read-only.", "GROUP_ARCHIVED");
+  const active = await Membership.find({
+    groupId: group._id,
+    status: "active",
+  }).lean();
+  const ids = new Set(active.map((member) => String(member.userId)));
+  if (
+    !ids.has(req.body.paidBy) ||
+    req.body.participants.some(
+      (participant: any) => !ids.has(participant.userId),
+    )
+  )
+    throw new AppError(
+      422,
+      "Payer and participants must be active group members.",
+      "INVALID_MEMBER",
+    );
+  try {
+    return {
+      ...req.body,
+      currency: group.currency,
+      participants: calculateSplit(
+        req.body.amountMinor,
+        req.body.splitType,
+        req.body.participants,
+      ),
+    };
+  } catch (error) {
+    if (error instanceof SplitValidationError)
+      throw new AppError(422, error.message, "INVALID_SPLIT");
+    throw error;
+  }
+}
+export const listExpenses = asyncHandler(async (req, res) => {
+  const id = String(req.params.groupId);
+  await membershipFor(req, id);
+  const query: Record<string, unknown> = {
+    groupId: id,
+    deletedAt: { $exists: false },
+  };
+  if (req.query.search)
+    query.title = { $regex: String(req.query.search), $options: "i" };
+  if (req.query.category) query.category = req.query.category;
+  if (req.query.paidBy) query.paidBy = req.query.paidBy;
+  const expenses = await Expense.find(query)
+    .populate("paidBy", "name avatarColor")
+    .populate("participants.userId", "name avatarColor")
+    .sort({ expenseDate: -1, createdAt: -1 })
+    .limit(Math.min(Number(req.query.limit) || 100, 200));
+  ok(res, { expenses });
+});
+export const createExpense = asyncHandler(async (req, res) => {
+  const id = String(req.params.groupId);
+  await membershipFor(req, id);
+  const payload = await materialize(req);
+  const expense = await Expense.create({
+    ...payload,
+    groupId: id,
+    createdBy: req.auth!.userId,
+    updatedBy: req.auth!.userId,
+  });
+  await recordActivity(
+    id,
+    req.auth!.userId,
+    "expense.created",
+    `Added ${expense.title}`,
+    { expenseId: String(expense._id) },
+  );
+  ok(res, { expense }, 201);
+});
+export const updateExpense = asyncHandler(async (req, res) => {
+  const id = String(req.params.groupId);
+  const actor = await membershipFor(req, id);
+  const expense = await Expense.findOne({
+    _id: String(req.params.expenseId),
+    groupId: id,
+    deletedAt: { $exists: false },
+  });
+  if (!expense) throw new AppError(404, "Expense not found.", "NOT_FOUND");
+  if (
+    String(expense.createdBy) !== req.auth!.userId &&
+    !["owner", "admin"].includes(actor.role)
+  )
+    throw new AppError(
+      403,
+      "Only the creator or an admin can edit this expense.",
+      "FORBIDDEN",
+    );
+  req.body = { ...expense.toObject(), ...req.body };
+  const payload = await materialize(req);
+  Object.assign(expense, payload, { updatedBy: req.auth!.userId });
+  await expense.save();
+  await recordActivity(
+    id,
+    req.auth!.userId,
+    "expense.updated",
+    `Updated ${expense.title}`,
+    { expenseId: String(expense._id) },
+  );
+  ok(res, { expense });
+});
+export const deleteExpense = asyncHandler(async (req, res) => {
+  const id = String(req.params.groupId);
+  const actor = await membershipFor(req, id);
+  const expense = await Expense.findOne({
+    _id: String(req.params.expenseId),
+    groupId: id,
+    deletedAt: { $exists: false },
+  });
+  if (!expense) throw new AppError(404, "Expense not found.", "NOT_FOUND");
+  if (
+    String(expense.createdBy) !== req.auth!.userId &&
+    !["owner", "admin"].includes(actor.role)
+  )
+    throw new AppError(
+      403,
+      "Only the creator or an admin can delete this expense.",
+      "FORBIDDEN",
+    );
+  expense.deletedAt = new Date();
+  await expense.save();
+  await recordActivity(
+    id,
+    req.auth!.userId,
+    "expense.deleted",
+    `Deleted ${expense.title}`,
+  );
+  ok(res, { deleted: true });
+});

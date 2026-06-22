@@ -1,9 +1,111 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Moon, Sun, UserRound } from 'lucide-react';
-import { api, ApiError } from '../lib/api';
-import { Avatar, Button, Card } from '../components/ui';
-import { useAuth } from '../providers/auth';
-import { useTheme } from '../providers/theme';
-export default function Profile() { const { user } = useAuth(); const client = useQueryClient(); const { theme, setTheme } = useTheme(); const [message, setMessage] = useState(''); const mutation = useMutation({ mutationFn: (body) => api.patch('/users/me', body), onSuccess: (data) => { client.setQueryData(['auth', 'me'], data); setMessage('Saved.'); }, onError: (issue) => setMessage(issue instanceof ApiError ? issue.message : 'Could not save.') }); if (!user)
-    return null; return <div className="max-w-2xl space-y-6"><section><p className="eyebrow">Account</p><h1 className="mt-1 text-3xl font-extrabold tracking-tight">Profile & preferences.</h1></section><Card className="p-5"><div className="flex items-center gap-4"><Avatar user={user} size="lg"/><div><p className="font-bold">{user.name}</p><p className="text-sm text-slate-500">{user.email}</p></div></div><form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); mutation.mutate({ name: form.get('name'), timezone: form.get('timezone'), defaultCurrency: form.get('currency') }); }}><label><span className="mb-1.5 block text-sm font-semibold">Name</span><input className="field" name="name" defaultValue={user.name}/></label><label><span className="mb-1.5 block text-sm font-semibold">Currency</span><select className="field" name="currency" defaultValue={user.defaultCurrency}><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option></select></label><label className="sm:col-span-2"><span className="mb-1.5 block text-sm font-semibold">Timezone</span><input className="field" name="timezone" defaultValue={user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}/></label><div className="sm:col-span-2 flex items-center gap-3"><Button loading={mutation.isPending}>Save profile</Button>{message && <span className="text-sm text-mint">{message}</span>}</div></form></Card><Card className="p-5"><p className="font-bold">Appearance</p><p className="mt-1 text-sm text-slate-500">Choose how SplitMate feels.</p><div className="mt-4 grid grid-cols-3 gap-2">{['light', 'dark', 'system'].map((choice) => <button key={choice} onClick={() => setTheme(choice)} className={`rounded-xl border p-3 text-sm font-semibold capitalize ${theme === choice ? 'border-violet bg-violet/10 text-violet' : 'text-slate-500'}`}>{choice === 'light' ? <Sun className="mx-auto mb-1 size-4"/> : choice === 'dark' ? <Moon className="mx-auto mb-1 size-4"/> : <UserRound className="mx-auto mb-1 size-4"/>}{choice}</button>)}</div></Card></div>; }
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Moon, Sun, UserRound } from "lucide-react";
+import { api, ApiError } from "../lib/api";
+import { Avatar, Button, Card } from "../components/ui";
+import { useAuth } from "../providers/auth";
+import { useTheme } from "../providers/theme";
+export default function Profile() {
+  const { user } = useAuth();
+  const client = useQueryClient();
+  const { theme, setTheme } = useTheme();
+  const [message, setMessage] = useState("");
+  const mutation = useMutation({
+    mutationFn: (body) => api.patch("/users/me", body),
+    onSuccess: (data) => {
+      client.setQueryData(["auth", "me"], data);
+      setMessage("Saved.");
+    },
+    onError: (issue) =>
+      setMessage(issue instanceof ApiError ? issue.message : "Could not save."),
+  });
+  if (!user) return null;
+  return (
+    <div className="max-w-2xl space-y-6">
+      <section>
+        <p className="eyebrow">Account</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight">
+          Profile & preferences.
+        </h1>
+      </section>
+      <Card className="p-5">
+        <div className="flex items-center gap-4">
+          <Avatar user={user} size="lg" />
+          <div>
+            <p className="font-bold">{user.name}</p>
+            <p className="text-sm text-slate-500">{user.email}</p>
+          </div>
+        </div>
+        <form
+          className="mt-6 grid gap-4 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            mutation.mutate({
+              name: form.get("name"),
+              timezone: form.get("timezone"),
+              defaultCurrency: form.get("currency"),
+            });
+          }}
+        >
+          <label>
+            <span className="mb-1.5 block text-sm font-semibold">Name</span>
+            <input className="field" name="name" defaultValue={user.name} />
+          </label>
+          <label>
+            <span className="mb-1.5 block text-sm font-semibold">Currency</span>
+            <select
+              className="field"
+              name="currency"
+              defaultValue={user.defaultCurrency}
+            >
+              <option>INR</option>
+              <option>USD</option>
+              <option>EUR</option>
+              <option>GBP</option>
+            </select>
+          </label>
+          <label className="sm:col-span-2">
+            <span className="mb-1.5 block text-sm font-semibold">Timezone</span>
+            <input
+              className="field"
+              name="timezone"
+              defaultValue={
+                user.timezone ||
+                Intl.DateTimeFormat().resolvedOptions().timeZone
+              }
+            />
+          </label>
+          <div className="sm:col-span-2 flex items-center gap-3">
+            <Button loading={mutation.isPending}>Save profile</Button>
+            {message && <span className="text-sm text-mint">{message}</span>}
+          </div>
+        </form>
+      </Card>
+      <Card className="p-5">
+        <p className="font-bold">Appearance</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Choose how SplitMate feels.
+        </p>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {["light", "dark", "system"].map((choice) => (
+            <button
+              key={choice}
+              onClick={() => setTheme(choice)}
+              className={`rounded-xl border p-3 text-sm font-semibold capitalize ${theme === choice ? "border-violet bg-violet/10 text-violet" : "text-slate-500"}`}
+            >
+              {choice === "light" ? (
+                <Sun className="mx-auto mb-1 size-4" />
+              ) : choice === "dark" ? (
+                <Moon className="mx-auto mb-1 size-4" />
+              ) : (
+                <UserRound className="mx-auto mb-1 size-4" />
+              )}
+              {choice}
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}

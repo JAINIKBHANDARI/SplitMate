@@ -1,26 +1,372 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Doughnut, Line } from 'react-chartjs-2';
-import { ArcElement, CategoryScale, Chart as ChartJS, Filler, Legend, LineElement, LinearScale, PointElement, Tooltip } from 'chart.js';
-import { motion } from 'motion/react';
-import { ArrowUpRight, CreditCard, Plus, ReceiptText, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
-import { compactMoney, money, relativeTime } from '../lib/format';
-import { Button, Card, Empty, Metric, Skeleton } from '../components/ui';
-import { useAuth } from '../providers/auth';
-import { useTheme } from '../providers/theme';
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler);
-const categoryColors = ['#6257df', '#16816d', '#c36745', '#c88a28', '#4b84cf', '#9b68ba'];
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Doughnut, Line } from "react-chartjs-2";
+import {
+  ArcElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+} from "chart.js";
+import { motion } from "motion/react";
+import {
+  ArrowUpRight,
+  CreditCard,
+  Plus,
+  ReceiptText,
+  Users,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { api } from "../lib/api";
+import { compactMoney, money, relativeTime } from "../lib/format";
+import { Button, Card, Empty, Metric, Skeleton } from "../components/ui";
+import { useAuth } from "../providers/auth";
+import { useTheme } from "../providers/theme";
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+);
+const categoryColors = [
+  "#6257df",
+  "#16816d",
+  "#c36745",
+  "#c88a28",
+  "#4b84cf",
+  "#9b68ba",
+];
 export default function Dashboard() {
-    const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get('/dashboard') });
-    const { user } = useAuth();
-    const { resolvedTheme } = useTheme();
-    const chart = useMemo(() => ({ text: resolvedTheme === 'dark' ? '#aab4c6' : '#647084', grid: resolvedTheme === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(39,48,70,.08)', primary: resolvedTheme === 'dark' ? '#9b92ff' : '#5045d8', fill: resolvedTheme === 'dark' ? 'rgba(155,146,255,.17)' : 'rgba(80,69,216,.12)' }), [resolvedTheme]);
-    if (isLoading)
-        return <div className="space-y-5"><div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-28"/>)}</div><Skeleton className="h-72"/></div>;
-    if (isError || !data)
-        return <Empty icon={<ReceiptText />} title="Dashboard unavailable" description="Your latest numbers could not be loaded." action={<Button onClick={() => refetch()}>Try again</Button>}/>;
-    const { summary } = data;
-    return <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .2 }} className="min-w-0 space-y-6"><section className="dashboard-intro flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="eyebrow">Your money, together</p><h1 className="mt-1 text-3xl font-extrabold tracking-[-.035em]">{user?.name ? `Hi, ${user.name.split(' ')[0]}.` : 'A clear view.'}</h1><p className="mt-1 text-sm text-slate-500">Everything shared, exactly where it should be.</p></div><Link to="/app/groups"><Button><Plus className="size-4"/>Add a group</Button></Link></section><section aria-label="Financial summary" className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6"><Metric label="Total spent" value={compactMoney(summary.totalSpentMinor)}/><Metric label="You paid" value={compactMoney(summary.yourPaidMinor)}/><Metric label="Your share" value={compactMoney(summary.yourShareMinor)}/><Metric label="You owe" value={compactMoney(summary.youOweMinor)} tone="negative"/><Metric label="You’re owed" value={compactMoney(summary.youAreOwedMinor)} tone="positive"/><Metric label="Active groups" value={String(summary.activeGroups)} hint="Groups in progress"/></section>{!summary.activeGroups ? <Empty icon={<Users />} title="No groups yet" description="Create one to start splitting." action={<Link to="/app/groups"><Button>Create your first group</Button></Link>}/> : <><section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,.85fr)]"><Card className="min-w-0 p-5 sm:p-6"><div className="mb-5 flex items-start justify-between"><div><h2 className="font-bold tracking-tight">Spending trend</h2><p className="mt-1 text-xs text-slate-500">Last six months across all groups.</p></div><span className="rounded-lg bg-violet/10 px-2 py-1 text-xs font-bold text-violet">Monthly</span></div>{data.monthly.length ? <div className="h-56 min-w-0" aria-label="Monthly spending line chart"><Line data={{ labels: data.monthly.map((item) => item.label), datasets: [{ data: data.monthly.map((item) => item.amountMinor / 100), borderColor: chart.primary, backgroundColor: chart.fill, fill: true, tension: .4, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: chart.primary, borderWidth: 2.25 }] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { displayColors: false, backgroundColor: resolvedTheme === 'dark' ? '#252a3a' : '#182033', callbacks: { label: (item) => money(Math.round(Number(item.raw) * 100)) } } }, scales: { y: { ticks: { color: chart.text, callback: (value) => `₹${value}` }, border: { display: false }, grid: { color: chart.grid } }, x: { ticks: { color: chart.text, maxRotation: 0 }, border: { display: false }, grid: { display: false } } } }}/></div> : <div className="grid h-56 place-items-center rounded-xl bg-violet/5 text-sm text-slate-500">No spending trend yet.</div>}</Card><Card className="min-w-0 overflow-hidden p-5 sm:p-6"><h2 className="font-bold tracking-tight">By category</h2><p className="mt-1 text-xs text-slate-500">Where shared money goes.</p>{data.category.length ? <div className="mt-4 grid h-48 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3"><div className="min-w-0 self-stretch"><Doughnut data={{ labels: data.category.map((item) => item._id), datasets: [{ data: data.category.map((item) => item.amountMinor), backgroundColor: categoryColors, hoverOffset: 3, borderWidth: 0 }] }} options={{ cutout: '74%', plugins: { legend: { display: false }, tooltip: { displayColors: false, backgroundColor: resolvedTheme === 'dark' ? '#252a3a' : '#182033', callbacks: { label: (item) => `${item.label}: ${money(Number(item.raw))}` } } }, maintainAspectRatio: false }}/></div><div className="max-w-28 space-y-2 text-xs">{data.category.slice(0, 4).map((item, index) => <p key={item._id} className="flex min-w-0 items-center gap-2"><i className="size-2 shrink-0 rounded-full" style={{ background: categoryColors[index] }}/><span className="truncate">{item._id}</span></p>)}</div></div> : <div className="grid h-48 place-items-center text-sm text-slate-500">No category data yet.</div>}</Card></section><section className="grid gap-5 lg:grid-cols-2"><Card className="overflow-hidden"><div className="flex items-center justify-between p-5"><div><h2 className="font-bold tracking-tight">Recent expenses</h2><p className="mt-1 text-xs text-slate-500">What’s been added lately.</p></div><ReceiptText className="size-5 text-violet" aria-hidden="true"/></div>{data.recentExpenses.length ? <div>{data.recentExpenses.map((expense) => <div key={expense._id} className="flex items-center gap-3 border-t px-5 py-3.5"><span className="grid size-9 place-items-center rounded-xl bg-violet/10 text-xs font-bold text-violet">{expense.category.slice(0, 1)}</span><span className="min-w-0 flex-1"><b className="block truncate text-sm">{expense.title}</b><small className="text-xs text-slate-500">{expense.groupId?.name} · {relativeTime(expense.createdAt)}</small></span><b className="amount text-sm">{money(expense.amountMinor, expense.currency)}</b></div>)}</div> : <p className="p-5 text-sm text-slate-500">No activity yet.</p>}</Card><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-bold tracking-tight">Top groups</h2><p className="mt-1 text-xs text-slate-500">By total spend.</p></div><CreditCard className="size-5 text-violet" aria-hidden="true"/></div><div className="mt-4 space-y-1">{data.topGroups.sort((a, b) => b.amountMinor - a.amountMinor).slice(0, 4).map((group) => <Link key={group.id} to={`/app/groups/${group.id}`} className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-violet/5"><span className="grid size-10 place-items-center rounded-xl bg-violet/10 text-sm font-bold text-violet">{group.name.slice(0, 1)}</span><span className="min-w-0 flex-1"><b className="block truncate text-sm">{group.name}</b><small className="amount text-xs text-slate-500">{money(group.amountMinor)}</small></span><ArrowUpRight className="size-4 text-slate-400"/></Link>)}</div></Card></section></>}</motion.div>;
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: () => api.get("/dashboard"),
+  });
+  const { user } = useAuth();
+  const { resolvedTheme } = useTheme();
+  const chart = useMemo(
+    () => ({
+      text: resolvedTheme === "dark" ? "#aab4c6" : "#647084",
+      grid:
+        resolvedTheme === "dark"
+          ? "rgba(255,255,255,.07)"
+          : "rgba(39,48,70,.08)",
+      primary: resolvedTheme === "dark" ? "#9b92ff" : "#5045d8",
+      fill:
+        resolvedTheme === "dark"
+          ? "rgba(155,146,255,.17)"
+          : "rgba(80,69,216,.12)",
+    }),
+    [resolvedTheme],
+  );
+  if (isLoading)
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-28" />
+          ))}
+        </div>
+        <Skeleton className="h-72" />
+      </div>
+    );
+  if (isError || !data)
+    return (
+      <Empty
+        icon={<ReceiptText />}
+        title="Dashboard unavailable"
+        description="Your latest numbers could not be loaded."
+        action={<Button onClick={() => refetch()}>Try again</Button>}
+      />
+    );
+  const { summary } = data;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="min-w-0 space-y-6"
+    >
+      <section className="dashboard-intro flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="eyebrow">Your money, together</p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-[-.035em]">
+            {user?.name ? `Hi, ${user.name.split(" ")[0]}.` : "A clear view."}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Everything shared, exactly where it should be.
+          </p>
+        </div>
+        <Link to="/app/groups">
+          <Button>
+            <Plus className="size-4" />
+            Add a group
+          </Button>
+        </Link>
+      </section>
+      <section
+        aria-label="Financial summary"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6"
+      >
+        <Metric
+          label="Total spent"
+          value={compactMoney(summary.totalSpentMinor)}
+        />
+        <Metric label="You paid" value={compactMoney(summary.yourPaidMinor)} />
+        <Metric
+          label="Your share"
+          value={compactMoney(summary.yourShareMinor)}
+        />
+        <Metric
+          label="You owe"
+          value={compactMoney(summary.youOweMinor)}
+          tone="negative"
+        />
+        <Metric
+          label="You’re owed"
+          value={compactMoney(summary.youAreOwedMinor)}
+          tone="positive"
+        />
+        <Metric
+          label="Active groups"
+          value={String(summary.activeGroups)}
+          hint="Groups in progress"
+        />
+      </section>
+      {!summary.activeGroups ? (
+        <Empty
+          icon={<Users />}
+          title="No groups yet"
+          description="Create one to start splitting."
+          action={
+            <Link to="/app/groups">
+              <Button>Create your first group</Button>
+            </Link>
+          }
+        />
+      ) : (
+        <>
+          <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,.85fr)]">
+            <Card className="min-w-0 p-5 sm:p-6">
+              <div className="mb-5 flex items-start justify-between">
+                <div>
+                  <h2 className="font-bold tracking-tight">Spending trend</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Last six months across all groups.
+                  </p>
+                </div>
+                <span className="rounded-lg bg-violet/10 px-2 py-1 text-xs font-bold text-violet">
+                  Monthly
+                </span>
+              </div>
+              {data.monthly.length ? (
+                <div
+                  className="h-56 min-w-0"
+                  aria-label="Monthly spending line chart"
+                >
+                  <Line
+                    data={{
+                      labels: data.monthly.map((item) => item.label),
+                      datasets: [
+                        {
+                          data: data.monthly.map(
+                            (item) => item.amountMinor / 100,
+                          ),
+                          borderColor: chart.primary,
+                          backgroundColor: chart.fill,
+                          fill: true,
+                          tension: 0.4,
+                          pointRadius: 3,
+                          pointHoverRadius: 5,
+                          pointBackgroundColor: chart.primary,
+                          borderWidth: 2.25,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          displayColors: false,
+                          backgroundColor:
+                            resolvedTheme === "dark" ? "#252a3a" : "#182033",
+                          callbacks: {
+                            label: (item) =>
+                              money(Math.round(Number(item.raw) * 100)),
+                          },
+                        },
+                      },
+                      scales: {
+                        y: {
+                          ticks: {
+                            color: chart.text,
+                            callback: (value) => `₹${value}`,
+                          },
+                          border: { display: false },
+                          grid: { color: chart.grid },
+                        },
+                        x: {
+                          ticks: { color: chart.text, maxRotation: 0 },
+                          border: { display: false },
+                          grid: { display: false },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="grid h-56 place-items-center rounded-xl bg-violet/5 text-sm text-slate-500">
+                  No spending trend yet.
+                </div>
+              )}
+            </Card>
+            <Card className="min-w-0 overflow-hidden p-5 sm:p-6">
+              <h2 className="font-bold tracking-tight">By category</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Where shared money goes.
+              </p>
+              {data.category.length ? (
+                <div className="mt-4 grid h-48 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <div className="min-w-0 self-stretch">
+                    <Doughnut
+                      data={{
+                        labels: data.category.map((item) => item._id),
+                        datasets: [
+                          {
+                            data: data.category.map((item) => item.amountMinor),
+                            backgroundColor: categoryColors,
+                            hoverOffset: 3,
+                            borderWidth: 0,
+                          },
+                        ],
+                      }}
+                      options={{
+                        cutout: "74%",
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: {
+                            displayColors: false,
+                            backgroundColor:
+                              resolvedTheme === "dark" ? "#252a3a" : "#182033",
+                            callbacks: {
+                              label: (item) =>
+                                `${item.label}: ${money(Number(item.raw))}`,
+                            },
+                          },
+                        },
+                        maintainAspectRatio: false,
+                      }}
+                    />
+                  </div>
+                  <div className="max-w-28 space-y-2 text-xs">
+                    {data.category.slice(0, 4).map((item, index) => (
+                      <p
+                        key={item._id}
+                        className="flex min-w-0 items-center gap-2"
+                      >
+                        <i
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ background: categoryColors[index] }}
+                        />
+                        <span className="truncate">{item._id}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid h-48 place-items-center text-sm text-slate-500">
+                  No category data yet.
+                </div>
+              )}
+            </Card>
+          </section>
+          <section className="grid gap-5 lg:grid-cols-2">
+            <Card className="overflow-hidden">
+              <div className="flex items-center justify-between p-5">
+                <div>
+                  <h2 className="font-bold tracking-tight">Recent expenses</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    What’s been added lately.
+                  </p>
+                </div>
+                <ReceiptText
+                  className="size-5 text-violet"
+                  aria-hidden="true"
+                />
+              </div>
+              {data.recentExpenses.length ? (
+                <div>
+                  {data.recentExpenses.map((expense) => (
+                    <div
+                      key={expense._id}
+                      className="flex items-center gap-3 border-t px-5 py-3.5"
+                    >
+                      <span className="grid size-9 place-items-center rounded-xl bg-violet/10 text-xs font-bold text-violet">
+                        {expense.category.slice(0, 1)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <b className="block truncate text-sm">
+                          {expense.title}
+                        </b>
+                        <small className="text-xs text-slate-500">
+                          {expense.groupId?.name} ·{" "}
+                          {relativeTime(expense.createdAt)}
+                        </small>
+                      </span>
+                      <b className="amount text-sm">
+                        {money(expense.amountMinor, expense.currency)}
+                      </b>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="p-5 text-sm text-slate-500">No activity yet.</p>
+              )}
+            </Card>
+            <Card className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold tracking-tight">Top groups</h2>
+                  <p className="mt-1 text-xs text-slate-500">By total spend.</p>
+                </div>
+                <CreditCard className="size-5 text-violet" aria-hidden="true" />
+              </div>
+              <div className="mt-4 space-y-1">
+                {data.topGroups
+                  .sort((a, b) => b.amountMinor - a.amountMinor)
+                  .slice(0, 4)
+                  .map((group) => (
+                    <Link
+                      key={group.id}
+                      to={`/app/groups/${group.id}`}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-violet/5"
+                    >
+                      <span className="grid size-10 place-items-center rounded-xl bg-violet/10 text-sm font-bold text-violet">
+                        {group.name.slice(0, 1)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <b className="block truncate text-sm">{group.name}</b>
+                        <small className="amount text-xs text-slate-500">
+                          {money(group.amountMinor)}
+                        </small>
+                      </span>
+                      <ArrowUpRight className="size-4 text-slate-400" />
+                    </Link>
+                  ))}
+              </div>
+            </Card>
+          </section>
+        </>
+      )}
+    </motion.div>
+  );
 }

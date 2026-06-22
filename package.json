@@ -2,7 +2,10 @@
   "name": "splitmate",
   "private": true,
   "version": "1.0.0",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run build -w @splitmate/shared && concurrently -n api,web -c cyan,magenta \"npm run dev -w @splitmate/api\" \"npm run dev -w @splitmate/web\"",
     "build": "npm run build -w @splitmate/shared && npm run build -w @splitmate/web && npm run build -w @splitmate/api",
@@ -18,5 +21,7 @@
     "concurrently": "^9.1.2",
     "prettier": "^3.5.2"
   },
-  "engines": { "node": ">=20.11" }
+  "engines": {
+    "node": ">=20.11"
+  }
 }

@@ -35,14 +35,14 @@ Use `demo@splitmate.app` with password `DemoPass123!`.
 
 ## Environment
 
-| Variable | Purpose |
-| --- | --- |
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_ACCESS_SECRET` | 32+ character access-token secret |
+| Variable             | Purpose                                      |
+| -------------------- | -------------------------------------------- |
+| `MONGODB_URI`        | MongoDB connection string                    |
+| `JWT_ACCESS_SECRET`  | 32+ character access-token secret            |
 | `JWT_REFRESH_SECRET` | Different 32+ character refresh-token secret |
-| `CLIENT_ORIGIN` | Browser origin, e.g. `http://localhost:5173` |
-| `PORT` / `API_PORT` | API port (default 4000) |
-| `COOKIE_SECURE` | `true` only behind HTTPS |
+| `CLIENT_ORIGIN`      | Browser origin, e.g. `http://localhost:5173` |
+| `PORT` / `API_PORT`  | API port (default 4000)                      |
+| `COOKIE_SECURE`      | `true` only behind HTTPS                     |
 
 ## Docker
 

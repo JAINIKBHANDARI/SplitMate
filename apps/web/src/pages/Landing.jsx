@@ -1,20 +1,438 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Moon, Plus, ReceiptText, Sun, Users, WandSparkles, Zap } from 'lucide-react';
-import { MarketingFooter } from '../components/MarketingFooter';
-import { useTheme } from '../providers/theme';
-const features = [{ title: 'Quick entry', body: 'Add a shared cost in seconds.', icon: Plus }, { title: 'Groups that fit', body: 'Trips, homes, dinners, anything.', icon: Users }, { title: 'Smart settle up', body: 'Fewer transfers. No awkward maths.', icon: Zap }];
-const occasions = [{ title: 'Dinner out', detail: 'Split the bill before the table clears.', icon: '🍽️' }, { title: 'Weekend away', detail: 'Keep every trip cost in one place.', icon: '✈️' }, { title: 'Shared home', detail: 'Utilities and groceries stay fair.', icon: '🏠' }, { title: 'Big plans', detail: 'Events, gifts, and group moments.', icon: '🎉' }];
-const steps = [{ title: 'Add any expense', body: 'Log who paid and who is included in a few calm, clear steps.', icon: ReceiptText }, { title: 'Choose the split', body: 'Equal, exact, percentage, or shares. Every amount reconciles.', icon: CircleDollarSign }, { title: 'Settle with clarity', body: 'See the fewest payments needed to make everyone even.', icon: CheckCircle2 }];
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CircleDollarSign,
+  Moon,
+  Plus,
+  ReceiptText,
+  Sun,
+  Users,
+  WandSparkles,
+  Zap,
+} from "lucide-react";
+import { MarketingFooter } from "../components/MarketingFooter";
+import { useTheme } from "../providers/theme";
+const features = [
+  { title: "Quick entry", body: "Add a shared cost in seconds.", icon: Plus },
+  {
+    title: "Groups that fit",
+    body: "Trips, homes, dinners, anything.",
+    icon: Users,
+  },
+  {
+    title: "Smart settle up",
+    body: "Fewer transfers. No awkward maths.",
+    icon: Zap,
+  },
+];
+const occasions = [
+  {
+    title: "Dinner out",
+    detail: "Split the bill before the table clears.",
+    icon: "🍽️",
+  },
+  {
+    title: "Weekend away",
+    detail: "Keep every trip cost in one place.",
+    icon: "✈️",
+  },
+  {
+    title: "Shared home",
+    detail: "Utilities and groceries stay fair.",
+    icon: "🏠",
+  },
+  {
+    title: "Big plans",
+    detail: "Events, gifts, and group moments.",
+    icon: "🎉",
+  },
+];
+const steps = [
+  {
+    title: "Add any expense",
+    body: "Log who paid and who is included in a few calm, clear steps.",
+    icon: ReceiptText,
+  },
+  {
+    title: "Choose the split",
+    body: "Equal, exact, percentage, or shares. Every amount reconciles.",
+    icon: CircleDollarSign,
+  },
+  {
+    title: "Settle with clarity",
+    body: "See the fewest payments needed to make everyone even.",
+    icon: CheckCircle2,
+  },
+];
 export default function Landing() {
-    const { resolvedTheme, toggleTheme } = useTheme();
-    const [step, setStep] = useState(0);
-    const [occasion, setOccasion] = useState(0);
-    const activeStep = steps[step], StepIcon = activeStep.icon;
-    useEffect(() => { const id = window.setInterval(() => setStep((current) => (current + 1) % steps.length), 5200); return () => window.clearInterval(id); }, []);
-    useEffect(() => { const id = window.setInterval(() => setOccasion((current) => (current + 1) % occasions.length), 4400); return () => window.clearInterval(id); }, []);
-    return <div className="min-h-screen overflow-hidden bg-paper text-ink"><div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"><div className="absolute -left-32 -top-32 size-[30rem] rounded-full bg-violet/10 blur-3xl"/><div className="absolute -bottom-48 right-[5%] size-[32rem] rounded-full bg-mint/10 blur-3xl"/></div><header className="fixed inset-x-0 top-0 z-40 border-b border-line bg-paper/75 backdrop-blur-xl"><nav className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5 sm:px-7"><Link to="/" className="flex items-center gap-2.5 font-extrabold tracking-[-.035em]"><span className="grid size-9 place-items-center rounded-xl bg-violet text-sm text-white shadow-lg shadow-violet/25">S</span><span><span className="block text-lg leading-4">SplitMate</span><small className="hidden text-[10px] font-semibold tracking-wide text-slate-500 sm:block">Shared money, sorted.</small></span></Link><div className="hidden items-center gap-7 md:flex"><a href="#features" className="text-sm font-semibold text-slate-500 transition hover:text-violet">Features</a><a href="#how-it-works" className="text-sm font-semibold text-slate-500 transition hover:text-violet">How it works</a><button type="button" onClick={toggleTheme} aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`} className="grid size-10 place-items-center rounded-xl border border-line bg-paper/80 text-slate-500 transition hover:border-violet/30 hover:text-violet">{resolvedTheme === 'dark' ? <Sun className="size-4"/> : <Moon className="size-4"/>}</button><Link to="/login" className="text-sm font-bold text-slate-600 transition hover:text-violet dark:text-slate-200">Sign in</Link><Link to="/signup" className="rounded-xl bg-violet px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet/20 transition hover:-translate-y-px hover:bg-[#4237c0]">Start free</Link></div><div className="flex items-center gap-2 md:hidden"><button type="button" onClick={toggleTheme} aria-label="Toggle theme" className="grid size-10 place-items-center rounded-xl border border-line text-slate-500">{resolvedTheme === 'dark' ? <Sun className="size-4"/> : <Moon className="size-4"/>}</button><Link to="/signup" className="rounded-xl bg-violet px-3 py-2.5 text-sm font-bold text-white">Start</Link></div></nav></header><main><section className="px-5 pb-20 pt-36 sm:pb-28 sm:pt-48"><div className="mx-auto max-w-5xl text-center"><p className="inline-flex items-center gap-2 rounded-full border border-violet/15 bg-violet/5 px-3 py-1.5 text-xs font-bold uppercase tracking-[.13em] text-violet"><WandSparkles className="size-3.5"/>Smart expense sharing</p><h1 className="mx-auto mt-6 max-w-4xl text-5xl font-extrabold leading-[.94] tracking-[-.065em] sm:text-7xl">Split bills.<br /><span className="bg-gradient-to-r from-violet via-violet to-mint bg-clip-text text-transparent">Keep it effortless.</span></h1><p className="mx-auto mt-6 max-w-xl text-base leading-7 text-slate-500 sm:text-lg">Shared money without the follow-up texts. Add expenses, see every balance, settle with confidence.</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link to="/signup" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet px-6 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:-translate-y-0.5 hover:bg-[#4237c0]">Get started free <ArrowRight className="size-4"/></Link><a href="#how-it-works" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-paper/65 px-6 text-sm font-bold text-ink transition hover:border-violet/30 hover:bg-violet/5">See how it works</a></div><p className="mt-4 text-xs font-medium text-slate-400">No card needed. Just your people.</p><Preview /></div></section><section id="features" className="px-5 py-20 sm:py-28"><div className="mx-auto max-w-6xl"><div className="mx-auto max-w-xl text-center"><p className="eyebrow">Made for real life</p><h2 className="mt-3 text-3xl font-extrabold tracking-[-.04em] sm:text-5xl">Everything you need.<br />Nothing you don’t.</h2><p className="mt-4 text-sm leading-6 text-slate-500 sm:text-base">The quiet system behind every fair shared bill.</p></div><div className="mt-12 grid gap-4 md:grid-cols-3">{features.map(({ icon: Icon, title, body }, index) => <article key={title} className="group relative overflow-hidden rounded-2xl border border-line bg-paper/75 p-6 shadow-soft transition duration-200 hover:-translate-y-1 hover:border-violet/30 hover:shadow-float"><span className="grid size-11 place-items-center rounded-xl bg-violet/10 text-violet transition group-hover:scale-110 group-hover:bg-violet group-hover:text-white"><Icon className="size-5"/></span><span className="absolute right-5 top-5 text-4xl font-extrabold tracking-tighter text-violet/10">0{index + 1}</span><h3 className="mt-7 text-lg font-bold tracking-tight">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{body}</p></article>)}</div></div></section><section className="px-5 py-16 sm:py-24"><div className="mx-auto max-w-5xl rounded-[1.6rem] border border-line bg-paper/70 p-5 shadow-soft sm:p-8"><div className="text-center"><p className="eyebrow">Built around your plans</p><h2 className="mt-3 text-3xl font-extrabold tracking-[-.04em] sm:text-4xl">Whatever you share.</h2></div><div className="relative mt-9 grid min-h-56 place-items-center overflow-hidden rounded-2xl border border-line bg-violet/5 p-5"><article className="grid max-w-md place-items-center text-center transition duration-300"><span className="text-5xl">{occasions[occasion].icon}</span><h3 className="mt-4 text-2xl font-bold tracking-tight">{occasions[occasion].title}</h3><p className="mt-2 text-sm text-slate-500">{occasions[occasion].detail}</p></article><CarouselControls count={occasions.length} active={occasion} onPrevious={() => setOccasion((current) => (current - 1 + occasions.length) % occasions.length)} onNext={() => setOccasion((current) => (current + 1) % occasions.length)} onSelect={setOccasion} label="occasion" compact/></div></div></section><section id="how-it-works" className="px-5 py-20 sm:py-28"><div className="mx-auto max-w-4xl"><div className="text-center"><p className="eyebrow">The simple bit</p><h2 className="mt-3 text-3xl font-extrabold tracking-[-.04em] sm:text-5xl">A smarter way to share.</h2></div><div className="mt-12 overflow-hidden rounded-[1.5rem] border border-line bg-paper/80 shadow-soft"><div className="grid min-h-72 place-items-center p-8 text-center sm:p-12"><span className="grid size-16 place-items-center rounded-2xl bg-violet/10 text-violet"><StepIcon className="size-7"/></span><h3 className="mt-6 text-2xl font-extrabold tracking-tight">{activeStep.title}</h3><p className="mt-3 max-w-md text-sm leading-6 text-slate-500">{activeStep.body}</p></div><CarouselControls count={steps.length} active={step} onPrevious={() => setStep((current) => (current - 1 + steps.length) % steps.length)} onNext={() => setStep((current) => (current + 1) % steps.length)} onSelect={setStep} label="step"/></div></div></section><section className="px-5 pb-24 pt-8 sm:pb-32"><div className="mx-auto max-w-4xl overflow-hidden rounded-[1.75rem] border border-violet/20 bg-gradient-to-br from-violet/15 via-violet/8 to-mint/10 p-8 text-center shadow-soft sm:p-14"><p className="eyebrow text-violet">Ready when you are</p><h2 className="mx-auto mt-3 max-w-lg text-3xl font-extrabold tracking-[-.045em] sm:text-5xl">Split smarter from the first expense.</h2><p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-500">Invite your people. Add the first bill. Let SplitMate do the rest.</p><Link to="/signup" className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-xl bg-violet px-6 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:-translate-y-0.5 hover:bg-[#4237c0]">Create your account <ArrowRight className="size-4"/></Link></div></section></main><MarketingFooter /></div>;
+  const { resolvedTheme, toggleTheme } = useTheme();
+  const [step, setStep] = useState(0);
+  const [occasion, setOccasion] = useState(0);
+  const activeStep = steps[step],
+    StepIcon = activeStep.icon;
+  useEffect(() => {
+    const id = window.setInterval(
+      () => setStep((current) => (current + 1) % steps.length),
+      5200,
+    );
+    return () => window.clearInterval(id);
+  }, []);
+  useEffect(() => {
+    const id = window.setInterval(
+      () => setOccasion((current) => (current + 1) % occasions.length),
+      4400,
+    );
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <div className="min-h-screen overflow-hidden bg-paper text-ink">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -left-32 -top-32 size-[30rem] rounded-full bg-violet/10 blur-3xl" />
+        <div className="absolute -bottom-48 right-[5%] size-[32rem] rounded-full bg-mint/10 blur-3xl" />
+      </div>
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-line bg-paper/75 backdrop-blur-xl">
+        <nav className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5 sm:px-7">
+          <Link
+            to="/"
+            className="flex items-center gap-2.5 font-extrabold tracking-[-.035em]"
+          >
+            <span className="grid size-9 place-items-center rounded-xl bg-violet text-sm text-white shadow-lg shadow-violet/25">
+              S
+            </span>
+            <span>
+              <span className="block text-lg leading-4">SplitMate</span>
+              <small className="hidden text-[10px] font-semibold tracking-wide text-slate-500 sm:block">
+                Shared money, sorted.
+              </small>
+            </span>
+          </Link>
+          <div className="hidden items-center gap-7 md:flex">
+            <a
+              href="#features"
+              className="text-sm font-semibold text-slate-500 transition hover:text-violet"
+            >
+              Features
+            </a>
+            <a
+              href="#how-it-works"
+              className="text-sm font-semibold text-slate-500 transition hover:text-violet"
+            >
+              How it works
+            </a>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
+              className="grid size-10 place-items-center rounded-xl border border-line bg-paper/80 text-slate-500 transition hover:border-violet/30 hover:text-violet"
+            >
+              {resolvedTheme === "dark" ? (
+                <Sun className="size-4" />
+              ) : (
+                <Moon className="size-4" />
+              )}
+            </button>
+            <Link
+              to="/login"
+              className="text-sm font-bold text-slate-600 transition hover:text-violet dark:text-slate-200"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/signup"
+              className="rounded-xl bg-violet px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet/20 transition hover:-translate-y-px hover:bg-[#4237c0]"
+            >
+              Start free
+            </Link>
+          </div>
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="grid size-10 place-items-center rounded-xl border border-line text-slate-500"
+            >
+              {resolvedTheme === "dark" ? (
+                <Sun className="size-4" />
+              ) : (
+                <Moon className="size-4" />
+              )}
+            </button>
+            <Link
+              to="/signup"
+              className="rounded-xl bg-violet px-3 py-2.5 text-sm font-bold text-white"
+            >
+              Start
+            </Link>
+          </div>
+        </nav>
+      </header>
+      <main>
+        <section className="px-5 pb-20 pt-36 sm:pb-28 sm:pt-48">
+          <div className="mx-auto max-w-5xl text-center">
+            <p className="inline-flex items-center gap-2 rounded-full border border-violet/15 bg-violet/5 px-3 py-1.5 text-xs font-bold uppercase tracking-[.13em] text-violet">
+              <WandSparkles className="size-3.5" />
+              Smart expense sharing
+            </p>
+            <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-extrabold leading-[.94] tracking-[-.065em] sm:text-7xl">
+              Split bills.
+              <br />
+              <span className="bg-gradient-to-r from-violet via-violet to-mint bg-clip-text text-transparent">
+                Keep it effortless.
+              </span>
+            </h1>
+            <p className="mx-auto mt-6 max-w-xl text-base leading-7 text-slate-500 sm:text-lg">
+              Shared money without the follow-up texts. Add expenses, see every
+              balance, settle with confidence.
+            </p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link
+                to="/signup"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet px-6 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:-translate-y-0.5 hover:bg-[#4237c0]"
+              >
+                Get started free <ArrowRight className="size-4" />
+              </Link>
+              <a
+                href="#how-it-works"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-paper/65 px-6 text-sm font-bold text-ink transition hover:border-violet/30 hover:bg-violet/5"
+              >
+                See how it works
+              </a>
+            </div>
+            <p className="mt-4 text-xs font-medium text-slate-400">
+              No card needed. Just your people.
+            </p>
+            <Preview />
+          </div>
+        </section>
+        <section id="features" className="px-5 py-20 sm:py-28">
+          <div className="mx-auto max-w-6xl">
+            <div className="mx-auto max-w-xl text-center">
+              <p className="eyebrow">Made for real life</p>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-[-.04em] sm:text-5xl">
+                Everything you need.
+                <br />
+                Nothing you don’t.
+              </h2>
+              <p className="mt-4 text-sm leading-6 text-slate-500 sm:text-base">
+                The quiet system behind every fair shared bill.
+              </p>
+            </div>
+            <div className="mt-12 grid gap-4 md:grid-cols-3">
+              {features.map(({ icon: Icon, title, body }, index) => (
+                <article
+                  key={title}
+                  className="group relative overflow-hidden rounded-2xl border border-line bg-paper/75 p-6 shadow-soft transition duration-200 hover:-translate-y-1 hover:border-violet/30 hover:shadow-float"
+                >
+                  <span className="grid size-11 place-items-center rounded-xl bg-violet/10 text-violet transition group-hover:scale-110 group-hover:bg-violet group-hover:text-white">
+                    <Icon className="size-5" />
+                  </span>
+                  <span className="absolute right-5 top-5 text-4xl font-extrabold tracking-tighter text-violet/10">
+                    0{index + 1}
+                  </span>
+                  <h3 className="mt-7 text-lg font-bold tracking-tight">
+                    {title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    {body}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+        <section className="px-5 py-16 sm:py-24">
+          <div className="mx-auto max-w-5xl rounded-[1.6rem] border border-line bg-paper/70 p-5 shadow-soft sm:p-8">
+            <div className="text-center">
+              <p className="eyebrow">Built around your plans</p>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-[-.04em] sm:text-4xl">
+                Whatever you share.
+              </h2>
+            </div>
+            <div className="relative mt-9 grid min-h-56 place-items-center overflow-hidden rounded-2xl border border-line bg-violet/5 p-5">
+              <article className="grid max-w-md place-items-center text-center transition duration-300">
+                <span className="text-5xl">{occasions[occasion].icon}</span>
+                <h3 className="mt-4 text-2xl font-bold tracking-tight">
+                  {occasions[occasion].title}
+                </h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  {occasions[occasion].detail}
+                </p>
+              </article>
+              <CarouselControls
+                count={occasions.length}
+                active={occasion}
+                onPrevious={() =>
+                  setOccasion(
+                    (current) =>
+                      (current - 1 + occasions.length) % occasions.length,
+                  )
+                }
+                onNext={() =>
+                  setOccasion((current) => (current + 1) % occasions.length)
+                }
+                onSelect={setOccasion}
+                label="occasion"
+                compact
+              />
+            </div>
+          </div>
+        </section>
+        <section id="how-it-works" className="px-5 py-20 sm:py-28">
+          <div className="mx-auto max-w-4xl">
+            <div className="text-center">
+              <p className="eyebrow">The simple bit</p>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-[-.04em] sm:text-5xl">
+                A smarter way to share.
+              </h2>
+            </div>
+            <div className="mt-12 overflow-hidden rounded-[1.5rem] border border-line bg-paper/80 shadow-soft">
+              <div className="grid min-h-72 place-items-center p-8 text-center sm:p-12">
+                <span className="grid size-16 place-items-center rounded-2xl bg-violet/10 text-violet">
+                  <StepIcon className="size-7" />
+                </span>
+                <h3 className="mt-6 text-2xl font-extrabold tracking-tight">
+                  {activeStep.title}
+                </h3>
+                <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">
+                  {activeStep.body}
+                </p>
+              </div>
+              <CarouselControls
+                count={steps.length}
+                active={step}
+                onPrevious={() =>
+                  setStep(
+                    (current) => (current - 1 + steps.length) % steps.length,
+                  )
+                }
+                onNext={() =>
+                  setStep((current) => (current + 1) % steps.length)
+                }
+                onSelect={setStep}
+                label="step"
+              />
+            </div>
+          </div>
+        </section>
+        <section className="px-5 pb-24 pt-8 sm:pb-32">
+          <div className="mx-auto max-w-4xl overflow-hidden rounded-[1.75rem] border border-violet/20 bg-gradient-to-br from-violet/15 via-violet/8 to-mint/10 p-8 text-center shadow-soft sm:p-14">
+            <p className="eyebrow text-violet">Ready when you are</p>
+            <h2 className="mx-auto mt-3 max-w-lg text-3xl font-extrabold tracking-[-.045em] sm:text-5xl">
+              Split smarter from the first expense.
+            </h2>
+            <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-500">
+              Invite your people. Add the first bill. Let SplitMate do the rest.
+            </p>
+            <Link
+              to="/signup"
+              className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-xl bg-violet px-6 text-sm font-bold text-white shadow-lg shadow-violet/25 transition hover:-translate-y-0.5 hover:bg-[#4237c0]"
+            >
+              Create your account <ArrowRight className="size-4" />
+            </Link>
+          </div>
+        </section>
+      </main>
+      <MarketingFooter />
+    </div>
+  );
 }
-function CarouselControls({ count, active, onPrevious, onNext, onSelect, label, compact = false }) { return <div className={compact ? 'absolute inset-x-0 bottom-4 flex items-center justify-center gap-3' : 'flex items-center justify-center gap-4 border-t border-line px-5 py-4'}><button type="button" onClick={onPrevious} className="grid size-9 place-items-center rounded-lg border border-line bg-paper text-slate-500 hover:text-violet" aria-label={`Previous ${label}`}><ChevronLeft className="size-4"/></button><div className="flex gap-1.5">{Array.from({ length: count }).map((_, index) => <button type="button" key={index} onClick={() => onSelect(index)} className={`h-1.5 rounded-full transition-all ${index === active ? 'w-6 bg-violet' : 'w-1.5 bg-slate-300 dark:bg-slate-600'}`} aria-label={`Show ${label} ${index + 1}`}/>)}</div><button type="button" onClick={onNext} className="grid size-9 place-items-center rounded-lg border border-line bg-paper text-slate-500 hover:text-violet" aria-label={`Next ${label}`}><ChevronRight className="size-4"/></button></div>; }
-function Preview() { return <div className="mx-auto mt-14 max-w-4xl text-left sm:mt-16"><div className="overflow-hidden rounded-[1.6rem] border border-line bg-paper/85 p-3 shadow-float"><div className="rounded-[1.2rem] border border-violet/10 bg-gradient-to-br from-violet/10 via-paper to-mint/10 p-5 sm:p-8"><div className="flex items-start justify-between"><div><p className="eyebrow">Weekend in Goa</p><h2 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">You’re owed ₹2,480</h2><p className="mt-1 text-sm text-slate-500">2 transfers settle everything.</p></div><span className="grid size-11 place-items-center rounded-2xl bg-mint/15 text-mint"><CheckCircle2 className="size-5"/></span></div><div className="mt-7 grid gap-3 sm:grid-cols-3"><PreviewMetric label="Total spent" value="₹27,440"/><PreviewMetric label="You paid" value="₹18,600"/><div className="rounded-2xl bg-violet p-4 text-white shadow-lg shadow-violet/25"><p className="text-[10px] font-bold uppercase tracking-[.13em] text-white/65">Settle up</p><b className="mt-2 block text-xl">2 payments</b></div></div><Link to="/signup" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3 text-sm font-bold text-white transition hover:bg-[#4237c0]"><Plus className="size-4"/>Start your first group</Link></div></div></div>; }
-function PreviewMetric({ label, value }) { return <div className="rounded-2xl border border-line bg-paper/85 p-4"><p className="eyebrow">{label}</p><b className="amount mt-2 block text-xl">{value}</b></div>; }
+function CarouselControls({
+  count,
+  active,
+  onPrevious,
+  onNext,
+  onSelect,
+  label,
+  compact = false,
+}) {
+  return (
+    <div
+      className={
+        compact
+          ? "absolute inset-x-0 bottom-4 flex items-center justify-center gap-3"
+          : "flex items-center justify-center gap-4 border-t border-line px-5 py-4"
+      }
+    >
+      <button
+        type="button"
+        onClick={onPrevious}
+        className="grid size-9 place-items-center rounded-lg border border-line bg-paper text-slate-500 hover:text-violet"
+        aria-label={`Previous ${label}`}
+      >
+        <ChevronLeft className="size-4" />
+      </button>
+      <div className="flex gap-1.5">
+        {Array.from({ length: count }).map((_, index) => (
+          <button
+            type="button"
+            key={index}
+            onClick={() => onSelect(index)}
+            className={`h-1.5 rounded-full transition-all ${index === active ? "w-6 bg-violet" : "w-1.5 bg-slate-300 dark:bg-slate-600"}`}
+            aria-label={`Show ${label} ${index + 1}`}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onNext}
+        className="grid size-9 place-items-center rounded-lg border border-line bg-paper text-slate-500 hover:text-violet"
+        aria-label={`Next ${label}`}
+      >
+        <ChevronRight className="size-4" />
+      </button>
+    </div>
+  );
+}
+function Preview() {
+  return (
+    <div className="mx-auto mt-14 max-w-4xl text-left sm:mt-16">
+      <div className="overflow-hidden rounded-[1.6rem] border border-line bg-paper/85 p-3 shadow-float">
+        <div className="rounded-[1.2rem] border border-violet/10 bg-gradient-to-br from-violet/10 via-paper to-mint/10 p-5 sm:p-8">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="eyebrow">Weekend in Goa</p>
+              <h2 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                You’re owed ₹2,480
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                2 transfers settle everything.
+              </p>
+            </div>
+            <span className="grid size-11 place-items-center rounded-2xl bg-mint/15 text-mint">
+              <CheckCircle2 className="size-5" />
+            </span>
+          </div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            <PreviewMetric label="Total spent" value="₹27,440" />
+            <PreviewMetric label="You paid" value="₹18,600" />
+            <div className="rounded-2xl bg-violet p-4 text-white shadow-lg shadow-violet/25">
+              <p className="text-[10px] font-bold uppercase tracking-[.13em] text-white/65">
+                Settle up
+              </p>
+              <b className="mt-2 block text-xl">2 payments</b>
+            </div>
+          </div>
+          <Link
+            to="/signup"
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3 text-sm font-bold text-white transition hover:bg-[#4237c0]"
+          >
+            <Plus className="size-4" />
+            Start your first group
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+function PreviewMetric({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-line bg-paper/85 p-4">
+      <p className="eyebrow">{label}</p>
+      <b className="amount mt-2 block text-xl">{value}</b>
+    </div>
+  );
+}

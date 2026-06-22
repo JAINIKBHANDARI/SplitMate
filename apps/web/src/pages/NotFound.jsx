@@ -1,4 +1,27 @@
-import { Link } from 'react-router-dom';
-import { ArrowLeft, SearchX } from 'lucide-react';
-import { Button, Card } from '../components/ui';
-export default function NotFound() { return <main className="grid min-h-screen place-items-center bg-paper p-5"><Card className="max-w-md p-8 text-center"><div className="mx-auto grid size-14 place-items-center rounded-2xl bg-violet/10 text-violet"><SearchX className="size-6"/></div><p className="eyebrow mt-5">404</p><h1 className="mt-2 text-2xl font-extrabold tracking-tight">This page moved on.</h1><p className="mt-2 text-sm leading-6 text-slate-500">There’s nothing to settle here. Let’s get you back to your workspace.</p><Link to="/app" className="mt-6 inline-flex"><Button><ArrowLeft className="size-4"/>Back to SplitMate</Button></Link></Card></main>; }
+import { Link } from "react-router-dom";
+import { ArrowLeft, SearchX } from "lucide-react";
+import { Button, Card } from "../components/ui";
+export default function NotFound() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-paper p-5">
+      <Card className="max-w-md p-8 text-center">
+        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-violet/10 text-violet">
+          <SearchX className="size-6" />
+        </div>
+        <p className="eyebrow mt-5">404</p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">
+          This page moved on.
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          There’s nothing to settle here. Let’s get you back to your workspace.
+        </p>
+        <Link to="/app" className="mt-6 inline-flex">
+          <Button>
+            <ArrowLeft className="size-4" />
+            Back to SplitMate
+          </Button>
+        </Link>
+      </Card>
+    </main>
+  );
+}

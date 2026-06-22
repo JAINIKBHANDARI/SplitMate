@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "vite", "build": "vite build", "lint": "vite build --emptyOutDir false", "test": "vitest run src", "test:e2e": "playwright test" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "vite build --emptyOutDir false",
+    "test": "vitest run src",
+    "test:e2e": "playwright test"
+  },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
     "@splitmate/shared": "*",
