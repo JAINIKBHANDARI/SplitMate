@@ -1,0 +1,31 @@
+{
+  "name": "@splitmate/web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "vite build", "lint": "vite build --emptyOutDir false", "test": "vitest run src", "test:e2e": "playwright test" },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
+    "@splitmate/shared": "*",
+    "@tanstack/react-query": "^5.62.11",
+    "chart.js": "^4.4.7",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "motion": "^11.15.0",
+    "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.54.2",
+    "react-router-dom": "^7.1.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.8"
+  }
+}
