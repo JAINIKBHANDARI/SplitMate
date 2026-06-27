@@ -6,7 +6,7 @@ import { Membership } from "../models/Membership.js";
 export async function calculateGroupBalances(groupId: string) {
   const memberships = await Membership.find({
     groupId,
-    status: "active",
+    status: { $ne: "removed" },
     userId: { $exists: true },
   }).populate("userId", "name email avatarColor");
   const activeMembers = memberships.filter((member) => member.userId);
@@ -18,7 +18,7 @@ export async function calculateGroupBalances(groupId: string) {
   );
   const [expenses, settlements] = await Promise.all([
     Expense.find({ groupId, deletedAt: { $exists: false } }).lean(),
-    Settlement.find({ groupId, status: "completed" }).lean(),
+    Settlement.find({ groupId, status: { $in: ["completed", "confirmed"] } }).lean(),
   ]);
   for (const expense of expenses) {
     const payer = String(expense.paidBy);

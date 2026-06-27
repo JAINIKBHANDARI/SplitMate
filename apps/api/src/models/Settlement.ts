@@ -13,8 +13,8 @@ const settlementSchema = new Schema(
     currency: { type: String, required: true },
     status: {
       type: String,
-      enum: ["pending", "completed", "cancelled"],
-      default: "completed",
+      enum: ["suggested", "pending", "sent", "confirmed", "completed", "cancelled", "rejected"],
+      default: "pending",
       index: true,
     },
     method: {
@@ -22,8 +22,16 @@ const settlementSchema = new Schema(
       enum: ["cash", "bank", "upi", "card", "other"],
       default: "upi",
     },
+    transactionRef: { type: String, trim: true, maxlength: 120 },
+    upiLink: { type: String, trim: true, maxlength: 600 },
+    proofAttachmentId: { type: Schema.Types.ObjectId, ref: "Attachment" },
+    requestedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    sentAt: Date,
+    confirmedAt: Date,
+    confirmedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    cancelledAt: Date,
     note: { type: String, trim: true, maxlength: 300, default: "" },
-    settledAt: { type: Date, default: Date.now },
+    settledAt: Date,
   },
   { timestamps: true },
 );

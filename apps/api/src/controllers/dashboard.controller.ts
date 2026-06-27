@@ -3,9 +3,12 @@ import { Group } from "../models/Group.js";
 import { Membership } from "../models/Membership.js";
 import { Settlement } from "../models/Settlement.js";
 import { Activity } from "../models/Activity.js";
+import { RecurringExpense } from "../models/RecurringExpense.js";
+import { Budget } from "../models/Budget.js";
 import { asyncHandler } from "../lib/errors.js";
 import { ok } from "../lib/http.js";
 import { calculateGroupBalances } from "../services/balance.service.js";
+import { listBudgetUsage } from "../services/budget.service.js";
 
 export const dashboard = asyncHandler(async (req, res) => {
   const memberships = await Membership.find({
@@ -13,7 +16,8 @@ export const dashboard = asyncHandler(async (req, res) => {
     status: "active",
   }).lean();
   const groupIds = memberships.map((membership) => membership.groupId);
-  const [groups, expenses, settlements, activity, category, monthly] =
+  const month = new Date().toISOString().slice(0, 7);
+  const [groups, expenses, settlements, activity, category, monthly, recurringDue] =
     await Promise.all([
       Group.find({ _id: { $in: groupIds }, archived: false }).lean(),
       Expense.find({
@@ -60,7 +64,27 @@ export const dashboard = asyncHandler(async (req, res) => {
         },
         { $sort: { "_id.y": 1, "_id.m": 1 } },
       ]),
+      RecurringExpense.find({
+        groupId: { $in: groupIds },
+        status: "active",
+        nextOccurrenceDate: {
+          $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      })
+        .populate("groupId", "name cover")
+        .sort({ nextOccurrenceDate: 1 })
+        .limit(6)
+        .lean(),
     ]);
+  const budgetStatus = await listBudgetUsage(
+    {
+      $or: [
+        { groupId: { $in: groupIds }, month },
+        { userId: req.auth!.userId, month },
+      ],
+    },
+    req.auth!.userId,
+  );
   const groupBalanceRows = await Promise.all(
     groups.map((group) => calculateGroupBalances(String(group._id))),
   );
@@ -101,6 +125,8 @@ export const dashboard = asyncHandler(async (req, res) => {
     recentExpenses: expenses,
     recentSettlements: settlements,
     recentActivity: activity,
+    budgetStatus,
+    recurringDue,
     category,
     monthly: monthly.map((row) => ({
       label: `${row._id.y}-${String(row._id.m).padStart(2, "0")}`,

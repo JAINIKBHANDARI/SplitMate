@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { CalendarClock, Check, Upload } from "lucide-react";
 import { api, ApiError } from "../../lib/api";
+import { fieldErrorsFrom, focusFirstInvalid } from "../../lib/formErrors";
 import { money } from "../../lib/format";
 import { Button, Modal } from "../../components/ui";
 export function ExpenseDialog({ group, members, open, onClose }) {
@@ -25,6 +26,11 @@ export function ExpenseDialog({ group, members, open, onClose }) {
     })),
   );
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [recurringEnabled, setRecurringEnabled] = useState(false);
+  const [recurringFrequency, setRecurringFrequency] = useState("monthly");
   const client = useQueryClient();
   const active = rows.filter((row) => row.included);
   const minor = Math.round(Number(amount || 0) * 100);
@@ -57,6 +63,15 @@ export function ExpenseDialog({ group, members, open, onClose }) {
         paidBy,
         splitType,
         expenseDate: new Date(),
+        recurring: recurringEnabled
+          ? {
+              enabled: true,
+              frequency: recurringFrequency,
+              interval: 1,
+              startDate: new Date(),
+              reminderDaysBefore: 1,
+            }
+          : undefined,
         participants: rows.map((row) => ({
           userId: row.userId,
           included: row.included,
@@ -69,19 +84,42 @@ export function ExpenseDialog({ group, members, open, onClose }) {
                 : {}),
         })),
       }),
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      if (receiptFile && data?.expense?._id) {
+        const formData = new FormData();
+        formData.append("file", receiptFile);
+        formData.append("caption", "Receipt");
+        await api.upload(
+          `/attachments/expense/${data.expense._id}`,
+          formData,
+          (event) => {
+            if (event.total)
+              setUploadProgress(Math.round((event.loaded / event.total) * 100));
+          },
+        );
+      }
       client.invalidateQueries({ queryKey: ["group", group._id] });
       client.invalidateQueries({ queryKey: ["expenses", group._id] });
       client.invalidateQueries({ queryKey: ["balances", group._id] });
+      client.invalidateQueries({ queryKey: ["recurring", group._id] });
       client.invalidateQueries({ queryKey: ["dashboard"] });
       onClose();
       setTitle("");
       setAmount("");
+      setReceiptFile(null);
+      setUploadProgress(0);
+      setRecurringEnabled(false);
+      setFieldErrors({});
+      setError("");
     },
-    onError: (issue) =>
+    onError: (issue) => {
+      const nextFieldErrors =
+        issue instanceof ApiError ? fieldErrorsFrom(issue) : {};
+      setFieldErrors(nextFieldErrors);
       setError(
         issue instanceof ApiError ? issue.message : "Could not save expense.",
-      ),
+      );
+    },
   });
   const change = (id, update) =>
     setRows((current) =>
@@ -93,8 +131,21 @@ export function ExpenseDialog({ group, members, open, onClose }) {
         onSubmit={(event) => {
           event.preventDefault();
           setError("");
-          if (!title || minor <= 0 || !paidBy)
-            return setError("Add a title, amount, and payer.");
+          const localErrors = validateExpense({
+            title,
+            minor,
+            paidBy,
+            splitType,
+            active,
+            shares,
+          });
+          if (Object.keys(localErrors).length) {
+            setFieldErrors(localErrors);
+            setError(localErrors.form || "Validation failed");
+            focusFirstInvalid(event.currentTarget, localErrors);
+            return;
+          }
+          setFieldErrors({});
           mutation.mutate();
         }}
         className="space-y-5"
@@ -107,10 +158,17 @@ export function ExpenseDialog({ group, members, open, onClose }) {
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              className="field"
+              name="title"
+              className={`field ${fieldErrors.title ? "border-rose-500" : ""}`}
               placeholder="Dinner at Blue Tokai"
               autoFocus
+              aria-invalid={Boolean(fieldErrors.title)}
             />
+            {fieldErrors.title && (
+              <small className="mt-1.5 block text-sm text-rose-600">
+                {fieldErrors.title}
+              </small>
+            )}
           </label>
           <label>
             <span className="mb-1.5 block text-sm font-semibold">Amount</span>
@@ -121,11 +179,18 @@ export function ExpenseDialog({ group, members, open, onClose }) {
               <input
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                className="field pl-7"
+                name="amount"
+                className={`field pl-7 ${fieldErrors.amountMinor || fieldErrors.amount ? "border-rose-500" : ""}`}
                 inputMode="decimal"
                 placeholder="0.00"
+                aria-invalid={Boolean(fieldErrors.amountMinor || fieldErrors.amount)}
               />
             </div>
+            {(fieldErrors.amountMinor || fieldErrors.amount) && (
+              <small className="mt-1.5 block text-sm text-rose-600">
+                {fieldErrors.amountMinor || fieldErrors.amount}
+              </small>
+            )}
           </label>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -134,7 +199,9 @@ export function ExpenseDialog({ group, members, open, onClose }) {
             <select
               value={paidBy}
               onChange={(event) => setPaidBy(event.target.value)}
-              className="field"
+              name="paidBy"
+              className={`field ${fieldErrors.paidBy ? "border-rose-500" : ""}`}
+              aria-invalid={Boolean(fieldErrors.paidBy)}
             >
               {people.map((person) => (
                 <option key={person.id} value={person.id}>
@@ -142,6 +209,11 @@ export function ExpenseDialog({ group, members, open, onClose }) {
                 </option>
               ))}
             </select>
+            {fieldErrors.paidBy && (
+              <small className="mt-1.5 block text-sm text-rose-600">
+                {fieldErrors.paidBy}
+              </small>
+            )}
           </label>
           <label>
             <span className="mb-1.5 block text-sm font-semibold">Category</span>
@@ -205,6 +277,7 @@ export function ExpenseDialog({ group, members, open, onClose }) {
                     change(row.userId, { value: Number(event.target.value) })
                   }
                   type="number"
+                  name={`split-${row.userId}`}
                   min="0"
                   step={splitType === "exact" ? ".01" : ".01"}
                   className="w-20 rounded-lg border bg-transparent px-2 py-1 text-right text-sm"
@@ -219,10 +292,65 @@ export function ExpenseDialog({ group, members, open, onClose }) {
               </span>
             </div>
           ))}
+          {fieldErrors.participants && (
+            <small className="mt-2 block text-sm text-rose-600">
+              {fieldErrors.participants}
+            </small>
+          )}
         </div>
+        <div className="grid gap-3 rounded-2xl border p-3">
+          <label className="flex items-center gap-3 text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={recurringEnabled}
+              onChange={(event) => setRecurringEnabled(event.target.checked)}
+            />
+            <CalendarClock className="size-4 text-violet" />
+            Make recurring
+          </label>
+          {recurringEnabled && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label>
+                <span className="mb-1.5 block text-sm font-semibold">
+                  Frequency
+                </span>
+                <select
+                  value={recurringFrequency}
+                  onChange={(event) => setRecurringFrequency(event.target.value)}
+                  className="field"
+                >
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="custom">Custom days</option>
+                </select>
+              </label>
+              <p className="self-end rounded-xl bg-violet/5 p-3 text-xs text-slate-500">
+                Future occurrences will be generated by the server cron.
+              </p>
+            </div>
+          )}
+        </div>
+        <label className="block rounded-2xl border p-3">
+          <span className="mb-2 flex items-center gap-2 text-sm font-semibold">
+            <Upload className="size-4 text-violet" />
+            Receipt or payment proof
+          </span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={(event) => setReceiptFile(event.target.files?.[0] ?? null)}
+            className="field"
+          />
+          {receiptFile && (
+            <p className="mt-2 text-xs text-slate-500">
+              {receiptFile.name}
+              {uploadProgress ? ` - ${uploadProgress}% uploaded` : ""}
+            </p>
+          )}
+        </label>
         {error && (
           <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-600 dark:bg-rose-500/10">
-            {error}
+            {fieldErrors.form || error}
           </p>
         )}
         <div className="flex justify-end gap-2 border-t pt-4">
@@ -236,4 +364,25 @@ export function ExpenseDialog({ group, members, open, onClose }) {
       </form>
     </Modal>
   );
+}
+
+function validateExpense({ title, minor, paidBy, splitType, active, shares }) {
+  const errors = {};
+  if (!title.trim()) errors.title = "Description is required.";
+  if (!Number.isSafeInteger(minor) || minor <= 0)
+    errors.amount = "Amount must be greater than zero.";
+  if (!paidBy) errors.paidBy = "Choose who paid.";
+  if (!active.length) errors.participants = "Select at least one participant.";
+  const totalShare = shares.reduce((sum, row) => sum + row.share, 0);
+  if (splitType === "exact" && totalShare !== minor)
+    errors.participants = "Exact split amounts must equal the total expense.";
+  const totalPercent = active.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  if (splitType === "percentage" && Math.abs(totalPercent - 100) > 0.0001)
+    errors.participants = "Percentage split must total 100%.";
+  if (
+    splitType === "shares" &&
+    active.some((row) => !Number.isFinite(row.value) || Number(row.value) <= 0)
+  )
+    errors.participants = "Shares must be positive.";
+  return errors;
 }

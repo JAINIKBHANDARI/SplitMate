@@ -14,11 +14,13 @@ import {
   createSession,
   hashOpaqueToken,
   hashPassword,
+  revokeAllSessions,
   revokeSession,
   rotateSession,
   verifyPassword,
 } from "../services/auth.service.js";
 import { PasswordResetToken } from "../models/Auth.js";
+import { actionEmail, sendEmail } from "../services/email.service.js";
 
 const publicUser = (user: any) => ({
   id: String(user._id),
@@ -28,6 +30,10 @@ const publicUser = (user: any) => ({
   avatarColor: user.avatarColor,
   timezone: user.timezone,
   defaultCurrency: user.defaultCurrency,
+  upiId: user.upiId,
+  phone: user.phone,
+  notificationPreferences: user.notificationPreferences,
+  isGuest: user.isGuest,
   onboardingComplete: user.onboardingComplete,
 });
 const setSession = (
@@ -39,20 +45,33 @@ const setSession = (
   res.cookie("sm_refresh", session.refresh, refreshCookie(remember));
 };
 export const signUp = asyncHandler(async (req, res) => {
-  const exists = await User.exists({ email: req.body.email });
-  if (exists)
+  const existing = await User.findOne({ email: req.body.email }).select(
+    "+passwordHash",
+  );
+  if (existing && !existing.isGuest)
     throw new AppError(
       409,
-      "An account with that email already exists.",
+      "An account with this email already exists.",
       "EMAIL_TAKEN",
+      [{ field: "email", message: "This email is already registered." }],
     );
-  const user = await User.create({
-    ...req.body,
+  const user =
+    existing ??
+    new User({
+      avatarColor: ["#6d5dfc", "#137a6c", "#bf5b2d", "#3269b7"][
+        Math.floor(Math.random() * 4)
+      ],
+    });
+  Object.assign(user, {
+    name: req.body.name,
+    email: req.body.email,
+    timezone: req.body.timezone,
+    defaultCurrency: req.body.defaultCurrency,
     passwordHash: await hashPassword(req.body.password),
-    avatarColor: ["#6d5dfc", "#137a6c", "#bf5b2d", "#3269b7"][
-      Math.floor(Math.random() * 4)
-    ],
+    isGuest: false,
+    claimedAt: existing?.isGuest ? new Date() : undefined,
   });
+  await user.save();
   await Membership.updateMany(
     { email: user.email, status: "invited" },
     { userId: user._id, status: "active" },
@@ -74,7 +93,7 @@ export const login = asyncHandler(async (req, res) => {
   )
     throw new AppError(
       401,
-      "Email or password is incorrect.",
+      "Invalid email or password.",
       "INVALID_CREDENTIALS",
     );
   user.lastSeenAt = new Date();
@@ -90,7 +109,8 @@ export const refresh = asyncHandler(async (req, res) => {
   try {
     const session = await rotateSession(req.cookies.sm_refresh);
     setSession(res, session);
-    ok(res, { refreshed: true });
+    const user = await User.findById(session.userId);
+    ok(res, { refreshed: true, user: user ? publicUser(user) : undefined });
   } catch {
     clearAuthCookies(res);
     throw new AppError(401, "Session expired.", "UNAUTHORIZED");
@@ -98,6 +118,11 @@ export const refresh = asyncHandler(async (req, res) => {
 });
 export const logout = asyncHandler(async (req, res) => {
   await revokeSession(req.cookies.sm_refresh);
+  clearAuthCookies(res);
+  ok(res, { loggedOut: true });
+});
+export const logoutAll = asyncHandler(async (req, res) => {
+  await revokeAllSessions(req.auth!.userId);
   clearAuthCookies(res);
   ok(res, { loggedOut: true });
 });
@@ -110,8 +135,13 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
   if (user) {
     const token = await createPasswordReset(String(user._id));
-    const resetUrl = `${process.env.CLIENT_ORIGIN ?? "http://localhost:5173"}/reset-password?token=${token}`;
-    console.info(`Password reset for ${user.email}: ${resetUrl}`);
+    const resetUrl = `${process.env.CLIENT_URL ?? process.env.CLIENT_ORIGIN ?? "http://localhost:5173"}/reset-password?token=${token}`;
+    const email = actionEmail("Use this secure link to reset your SplitMate password.", resetUrl);
+    await sendEmail({
+      to: String(user.email),
+      subject: "Reset your SplitMate password",
+      ...email,
+    });
   }
   ok(res, { accepted: true });
 });
@@ -132,15 +162,37 @@ export const resetPassword = asyncHandler(async (req, res) => {
   user.passwordHash = await hashPassword(req.body.password);
   await user.save();
   await PasswordResetToken.deleteMany({ userId: user._id });
+  await revokeAllSessions(String(user._id));
   const session = await createSession(String(user._id));
   setSession(res, session);
   ok(res, { user: publicUser(user) });
 });
 export const updateMe = asyncHandler(async (req, res) => {
+  const allowed = {
+    name: req.body.name,
+    timezone: req.body.timezone,
+    defaultCurrency: req.body.defaultCurrency,
+    upiId: req.body.upiId,
+    phone: req.body.phone,
+    notificationPreferences: req.body.notificationPreferences,
+  };
   const user = await User.findByIdAndUpdate(
     req.auth!.userId,
-    { $set: req.body },
+    { $set: allowed },
     { new: true, runValidators: true },
   );
+  ok(res, { user: publicUser(user) });
+});
+export const changePassword = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.auth!.userId).select("+passwordHash");
+  if (!user)
+    throw new AppError(401, "Session expired.", "UNAUTHORIZED");
+  if (!(await verifyPassword(String(user.passwordHash), req.body.currentPassword)))
+    throw new AppError(400, "Current password is incorrect.", "BAD_PASSWORD");
+  user.passwordHash = await hashPassword(req.body.newPassword);
+  await user.save();
+  await revokeAllSessions(String(user._id));
+  const session = await createSession(String(user._id));
+  setSession(res, session);
   ok(res, { user: publicUser(user) });
 });

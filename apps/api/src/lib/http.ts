@@ -4,7 +4,8 @@ import { env, isProduction } from "../config/env.js";
 const baseCookie: CookieOptions = {
   httpOnly: true,
   secure: isProduction || env.COOKIE_SECURE === "true",
-  sameSite: "lax",
+  sameSite: env.COOKIE_SAMESITE,
+  domain: env.COOKIE_DOMAIN,
   path: "/",
 };
 export const accessCookie = { ...baseCookie, maxAge: 15 * 60 * 1000 };

@@ -14,6 +14,7 @@
     "@hookform/resolvers": "^3.9.1",
     "@splitmate/shared": "*",
     "@tanstack/react-query": "^5.62.11",
+    "axios": "^1.18.1",
     "chart.js": "^4.4.7",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
@@ -27,11 +28,11 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.5",
-    "vitest": "^2.1.8"
+    "vite": "^8.1.0",
+    "vitest": "^4.1.9"
   }
 }

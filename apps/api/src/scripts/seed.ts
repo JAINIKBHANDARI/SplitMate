@@ -5,6 +5,11 @@ import { Membership } from "../models/Membership.js";
 import { Expense } from "../models/Expense.js";
 import { Settlement } from "../models/Settlement.js";
 import { Activity } from "../models/Activity.js";
+import { Budget } from "../models/Budget.js";
+import { RecurringExpense } from "../models/RecurringExpense.js";
+import { Invitation } from "../models/Invitation.js";
+import { Attachment } from "../models/Attachment.js";
+import { Notification } from "../models/Notification.js";
 import { hashPassword } from "../services/auth.service.js";
 import { calculateSplit } from "@splitmate/shared";
 
@@ -12,6 +17,11 @@ async function run() {
   await connectDatabase();
   await Promise.all([
     Activity.deleteMany({}),
+    Notification.deleteMany({}),
+    Attachment.deleteMany({}),
+    Invitation.deleteMany({}),
+    RecurringExpense.deleteMany({}),
+    Budget.deleteMany({}),
     Settlement.deleteMany({}),
     Expense.deleteMany({}),
     Membership.deleteMany({}),
@@ -19,7 +29,7 @@ async function run() {
     User.deleteMany({}),
   ]);
   const hash = await hashPassword("DemoPass123!");
-  const [jainik, riya, arjun] = await User.create([
+  const [jainik, riya, arjun, guest] = await User.create([
     {
       name: "Jainik Shah",
       email: "demo@splitmate.app",
@@ -40,6 +50,14 @@ async function run() {
       passwordHash: hash,
       avatarColor: "#bf5b2d",
       defaultCurrency: "INR",
+    },
+    {
+      name: "Neha Guest",
+      email: "neha.guest@example.com",
+      passwordHash: hash,
+      avatarColor: "#64748b",
+      defaultCurrency: "INR",
+      isGuest: true,
     },
   ]);
   const [goa, flat] = await Group.create([
@@ -66,6 +84,13 @@ async function run() {
     { groupId: goa._id, userId: arjun._id },
     { groupId: flat._id, userId: jainik._id, role: "owner" },
     { groupId: flat._id, userId: riya._id },
+    {
+      groupId: flat._id,
+      userId: guest._id,
+      email: "neha.guest@example.com",
+      displayName: "Neha Guest",
+      memberType: "guest",
+    },
   ]);
   const makeExpense = async (
     groupId: unknown,
@@ -148,6 +173,39 @@ async function run() {
     [jainik, riya],
     2,
   );
+  await RecurringExpense.create({
+    groupId: flat._id,
+    title: "Monthly rent",
+    amountMinor: 6000000,
+    currency: "INR",
+    category: "Home",
+    paidBy: jainik._id,
+    splitType: "equal",
+    participants: calculateSplit(
+      6000000,
+      "equal",
+      [jainik, riya, guest].map((user) => ({
+        userId: String(user._id),
+        included: true,
+      })),
+    ),
+    frequency: "monthly",
+    interval: 1,
+    startDate: new Date(),
+    nextOccurrenceDate: new Date(Date.now() + 3 * 86400000),
+    reminderDaysBefore: 2,
+    createdBy: jainik._id,
+    updatedBy: jainik._id,
+  });
+  await Budget.create({
+    groupId: flat._id,
+    scope: "group",
+    month: new Date().toISOString().slice(0, 7),
+    amountMinor: 12000000,
+    currency: "INR",
+    createdBy: jainik._id,
+    updatedBy: jainik._id,
+  });
   await Settlement.create({
     groupId: goa._id,
     fromUserId: arjun._id,
@@ -155,7 +213,11 @@ async function run() {
     amountMinor: 200000,
     currency: "INR",
     method: "upi",
-    status: "completed",
+    status: "confirmed",
+    requestedBy: arjun._id,
+    confirmedBy: jainik._id,
+    confirmedAt: new Date(),
+    settledAt: new Date(),
   });
   await Activity.create([
     {

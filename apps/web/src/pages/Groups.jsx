@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, FolderPlus, Plus, Users } from "lucide-react";
 import { api, ApiError } from "../lib/api";
+import { fieldErrorsFrom, focusFirstInvalid } from "../lib/formErrors";
 import { Button, Card, Empty, Modal, Skeleton } from "../components/ui";
 export default function Groups() {
   const { data, isLoading } = useQuery({
@@ -73,17 +74,24 @@ export default function Groups() {
 function GroupDialog({ open, onClose }) {
   const client = useQueryClient();
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const mutation = useMutation({
     mutationFn: (body) => api.post("/groups", body),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["groups"] });
       client.invalidateQueries({ queryKey: ["dashboard"] });
+      setFieldErrors({});
+      setError("");
       onClose();
     },
-    onError: (issue) =>
+    onError: (issue) => {
+      const nextFieldErrors =
+        issue instanceof ApiError ? fieldErrorsFrom(issue) : {};
+      setFieldErrors(nextFieldErrors);
       setError(
         issue instanceof ApiError ? issue.message : "Could not create group.",
-      ),
+      );
+    },
   });
   return (
     <Modal open={open} onClose={onClose} title="New group">
@@ -92,6 +100,16 @@ function GroupDialog({ open, onClose }) {
         onSubmit={(event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
+          const localErrors = {};
+          if (!String(form.get("name") || "").trim())
+            localErrors.name = "Group name is required.";
+          if (Object.keys(localErrors).length) {
+            setFieldErrors(localErrors);
+            focusFirstInvalid(event.currentTarget, localErrors);
+            return;
+          }
+          setFieldErrors({});
+          setError("");
           mutation.mutate({
             name: form.get("name"),
             description: form.get("description"),
@@ -104,10 +122,16 @@ function GroupDialog({ open, onClose }) {
           <input
             required
             name="name"
-            className="field"
+            className={`field ${fieldErrors.name ? "border-rose-500" : ""}`}
             placeholder="Weekend in Goa"
             autoFocus
+            aria-invalid={Boolean(fieldErrors.name)}
           />
+          {fieldErrors.name && (
+            <small className="mt-1.5 block text-sm text-rose-600">
+              {fieldErrors.name}
+            </small>
+          )}
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold">
@@ -129,7 +153,7 @@ function GroupDialog({ open, onClose }) {
             <option value="GBP">GBP — British Pound</option>
           </select>
         </label>
-        {error && <p className="text-sm text-rose-600">{error}</p>}
+        {error && <p className="text-sm text-rose-600">{fieldErrors.form || error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel

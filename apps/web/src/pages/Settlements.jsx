@@ -1,12 +1,23 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard } from "lucide-react";
 import { api } from "../lib/api";
 import { dateLabel, money } from "../lib/format";
-import { Card, Empty, Skeleton } from "../components/ui";
+import { Button, Card, Empty, Skeleton } from "../components/ui";
+import { useAuth } from "../providers/auth";
 export default function Settlements() {
+  const { user } = useAuth();
+  const client = useQueryClient();
   const groups = useQuery({
     queryKey: ["groups"],
     queryFn: () => api.get("/groups"),
+  });
+  const update = useMutation({
+    mutationFn: ({ groupId, settlementId, status }) =>
+      api.patch(`/groups/${groupId}/settlements/${settlementId}`, { status }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["settlements"] });
+      client.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
   const settlements = useQuery({
     queryKey: ["settlements"],
@@ -67,6 +78,40 @@ export default function Settlements() {
                   {item.status}
                 </small>
               </span>
+              <div className="flex shrink-0 gap-2">
+                {String(item.toUserId?._id) === user?.id &&
+                  ["pending", "sent"].includes(item.status) && (
+                    <Button
+                      variant="secondary"
+                      loading={update.isPending}
+                      onClick={() =>
+                        update.mutate({
+                          groupId: item.group._id,
+                          settlementId: item._id,
+                          status: "confirmed",
+                        })
+                      }
+                    >
+                      Confirm
+                    </Button>
+                  )}
+                {String(item.fromUserId?._id) === user?.id &&
+                  ["pending", "sent"].includes(item.status) && (
+                    <Button
+                      variant="ghost"
+                      loading={update.isPending}
+                      onClick={() =>
+                        update.mutate({
+                          groupId: item.group._id,
+                          settlementId: item._id,
+                          status: "cancelled",
+                        })
+                      }
+                    >
+                      Cancel
+                    </Button>
+                  )}
+              </div>
             </div>
           ))}
         </Card>

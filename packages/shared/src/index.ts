@@ -17,6 +17,25 @@ export class SplitValidationError extends Error {
   }
 }
 
+export function toMinorUnits(value: string | number) {
+  if (typeof value === "number" && !Number.isFinite(value))
+    throw new SplitValidationError("Amount must be a valid number.");
+  const raw = String(value).trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(raw))
+    throw new SplitValidationError("Amount can have at most two decimals.");
+  const [major, minor = ""] = raw.split(".");
+  const amount = Number(major) * 100 + Number(minor.padEnd(2, "0"));
+  if (!Number.isSafeInteger(amount) || amount <= 0)
+    throw new SplitValidationError("Amount must be greater than zero.");
+  return amount;
+}
+
+export function fromMinorUnits(amountMinor: number) {
+  if (!Number.isSafeInteger(amountMinor))
+    throw new SplitValidationError("Amount must be a whole minor unit.");
+  return (amountMinor / 100).toFixed(2);
+}
+
 const distribute = (
   amountMinor: number,
   weighted: Array<{
@@ -139,6 +158,26 @@ export function calculateSplit(
   }));
 }
 
+export const splitEqually = (
+  amountMinor: number,
+  participants: SplitParticipant[],
+) => calculateSplit(amountMinor, "equal", participants);
+
+export const splitByExactAmounts = (
+  amountMinor: number,
+  participants: SplitParticipant[],
+) => calculateSplit(amountMinor, "exact", participants);
+
+export const splitByPercentages = (
+  amountMinor: number,
+  participants: SplitParticipant[],
+) => calculateSplit(amountMinor, "percentage", participants);
+
+export const splitByShares = (
+  amountMinor: number,
+  participants: SplitParticipant[],
+) => calculateSplit(amountMinor, "shares", participants);
+
 export type NetBalance = { userId: string; amountMinor: number };
 export type SettlementSuggestion = {
   fromUserId: string;
@@ -183,6 +222,117 @@ export function suggestSettlements(
     if (!creditors[creditor].amountMinor) creditor++;
   }
   return suggestions;
+}
+
+export const generateSettlementSuggestions = suggestSettlements;
+
+export function calculateMemberBalances(
+  expenses: Array<{
+    amountMinor: number;
+    paidBy: string;
+    participants: Array<{ userId: string; shareMinor: number }>;
+  }>,
+  settlements: Array<{
+    fromUserId: string;
+    toUserId: string;
+    amountMinor: number;
+  }> = [],
+) {
+  const totals = new Map<string, number>();
+  const bump = (userId: string, amountMinor: number) =>
+    totals.set(userId, (totals.get(userId) ?? 0) + amountMinor);
+  for (const expense of expenses) {
+    bump(expense.paidBy, expense.amountMinor);
+    for (const participant of expense.participants)
+      bump(participant.userId, -participant.shareMinor);
+  }
+  for (const settlement of settlements) {
+    bump(settlement.fromUserId, settlement.amountMinor);
+    bump(settlement.toUserId, -settlement.amountMinor);
+  }
+  return [...totals]
+    .map(([userId, amountMinor]) => ({ userId, amountMinor }))
+    .sort((a, b) => a.userId.localeCompare(b.userId));
+}
+
+export function calculateUserSummary(
+  userId: string,
+  expenses: Array<{
+    amountMinor: number;
+    paidBy: string;
+    participants: Array<{ userId: string; shareMinor: number }>;
+  }>,
+) {
+  const totalSpentMinor = expenses.reduce(
+    (sum, expense) => sum + expense.amountMinor,
+    0,
+  );
+  const yourPaidMinor = expenses
+    .filter((expense) => expense.paidBy === userId)
+    .reduce((sum, expense) => sum + expense.amountMinor, 0);
+  const yourShareMinor = expenses.reduce(
+    (sum, expense) =>
+      sum +
+      (expense.participants.find((participant) => participant.userId === userId)
+        ?.shareMinor ?? 0),
+    0,
+  );
+  return {
+    totalSpentMinor,
+    yourPaidMinor,
+    yourShareMinor,
+    netMinor: yourPaidMinor - yourShareMinor,
+  };
+}
+
+export function calculateBudgetUsage(
+  amountMinor: number,
+  spentMinor: number,
+  now = new Date(),
+  periodEnd?: Date,
+) {
+  if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0)
+    throw new SplitValidationError("Budget amount must be positive.");
+  const remainingMinor = amountMinor - spentMinor;
+  const percentageUsed = Math.round((spentMinor / amountMinor) * 1000) / 10;
+  const daysRemaining = periodEnd
+    ? Math.max(
+        0,
+        Math.ceil((periodEnd.getTime() - now.getTime()) / 86_400_000),
+      )
+    : 0;
+  return {
+    amountMinor,
+    spentMinor,
+    remainingMinor,
+    percentageUsed,
+    daysRemaining,
+    isOverBudget: spentMinor > amountMinor,
+  };
+}
+
+export function calculateRecurringOccurrence(
+  date: Date,
+  frequency: "weekly" | "monthly" | "custom",
+  interval = 1,
+) {
+  const next = new Date(date);
+  if (!Number.isInteger(interval) || interval < 1)
+    throw new SplitValidationError("Recurring interval must be positive.");
+  if (frequency === "weekly") next.setDate(next.getDate() + 7 * interval);
+  else if (frequency === "monthly") {
+    const originalDay = next.getDate();
+    next.setDate(1);
+    next.setMonth(next.getMonth() + interval);
+    const lastDay = new Date(
+      next.getFullYear(),
+      next.getMonth() + 1,
+      0,
+    ).getDate();
+    next.setDate(Math.min(originalDay, lastDay));
+  }
+  else next.setDate(next.getDate() + interval);
+  return next;
 }
 
 export const CATEGORIES = [

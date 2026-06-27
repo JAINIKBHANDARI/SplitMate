@@ -1,15 +1,29 @@
 import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../lib/errors.js";
 import { verifyAccess } from "../services/auth.service.js";
+import { User } from "../models/User.js";
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
-    const token = req.cookies.sm_access;
+    const token =
+      req.cookies.sm_access ||
+      req.get("authorization")?.replace(/^Bearer\s+/i, "");
     if (!token)
       throw new AppError(401, "Please sign in to continue.", "UNAUTHORIZED");
     const claims = verifyAccess(token);
-    if (!claims.sub) throw new Error("No subject");
-    req.auth = { userId: claims.sub, claims };
+    if (typeof claims.sub !== "string" || !claims.sub)
+      throw new Error("No subject");
+    const userId = claims.sub;
+    const user = await User.findById(userId)
+      .select("name email")
+      .lean<{ _id: unknown; name: string; email: string }>();
+    if (!user) throw new AppError(401, "Session expired.", "UNAUTHORIZED");
+    req.auth = { userId, claims };
+    req.user = {
+      id: String(user._id),
+      name: user.name,
+      email: user.email,
+    };
     next();
   } catch {
     next(

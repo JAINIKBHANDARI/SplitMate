@@ -6,5 +6,5 @@ export default defineConfig({
     port: 5173,
     proxy: { "/api": { target: "http://localhost:4000", changeOrigin: true } },
   },
-  build: { sourcemap: true },
+  build: { sourcemap: process.env.NODE_ENV !== "production" },
 });

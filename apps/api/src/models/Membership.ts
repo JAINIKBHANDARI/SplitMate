@@ -9,6 +9,14 @@ const membershipSchema = new Schema(
     },
     userId: { type: Schema.Types.ObjectId, ref: "User", index: true },
     email: { type: String, lowercase: true, trim: true },
+    displayName: { type: String, trim: true, maxlength: 80 },
+    phone: { type: String, trim: true, maxlength: 30 },
+    memberType: {
+      type: String,
+      enum: ["user", "guest"],
+      default: "user",
+      index: true,
+    },
     role: {
       type: String,
       enum: ["owner", "admin", "member"],
@@ -20,6 +28,9 @@ const membershipSchema = new Schema(
       default: "active",
       index: true,
     },
+    invitedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    joinedAt: Date,
+    removedAt: Date,
   },
   { timestamps: true },
 );

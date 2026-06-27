@@ -5,8 +5,9 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { api, ApiError } from "../lib/api";
+import { fieldErrorsFrom, focusFirstInvalid } from "../lib/formErrors";
 import { Button } from "../components/ui";
 import { useAuth } from "../providers/auth";
 export default function Auth({ mode }) {
@@ -16,12 +17,22 @@ export default function Auth({ mode }) {
   const { refresh } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [sent, setSent] = useState(false);
   const submit = async (event) => {
     event.preventDefault();
+    const formEl = event.currentTarget;
     const form = new FormData(event.currentTarget);
+    const localErrors = validateAuthForm(mode, form, params);
+    if (Object.keys(localErrors).length) {
+      setFieldErrors(localErrors);
+      setError(localErrors.form || "");
+      focusFirstInvalid(formEl, localErrors);
+      return;
+    }
     setLoading(true);
     setError("");
+    setFieldErrors({});
     try {
       if (mode === "login") {
         await api.post("/auth/login", {
@@ -36,6 +47,7 @@ export default function Auth({ mode }) {
           name: form.get("name"),
           email: form.get("email"),
           password: form.get("password"),
+          confirmPassword: form.get("confirmPassword"),
           defaultCurrency: "INR",
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
@@ -48,12 +60,17 @@ export default function Auth({ mode }) {
         await api.post("/auth/reset-password", {
           token: params.get("token"),
           password: form.get("password"),
+          confirmPassword: form.get("confirmPassword"),
         });
         await refresh();
         navigate("/app");
       }
     } catch (issue) {
+      const nextFieldErrors =
+        issue instanceof ApiError ? fieldErrorsFrom(issue) : {};
+      setFieldErrors(nextFieldErrors);
       setError(issue instanceof ApiError ? issue.message : "Please try again.");
+      focusFirstInvalid(formEl, nextFieldErrors);
     } finally {
       setLoading(false);
     }
@@ -128,7 +145,7 @@ export default function Auth({ mode }) {
           </h1>
           <p className="mt-2 text-sm text-slate-500">
             {sent
-              ? "Check the server console for your reset link."
+              ? "If that email exists, a reset link has been sent or logged in development."
               : mode === "login"
                 ? "Good to see you."
                 : "We will help you get back in."}
@@ -140,7 +157,12 @@ export default function Auth({ mode }) {
           ) : (
             <form onSubmit={submit} className="mt-8 space-y-4">
               {mode === "signup" && (
-                <Field name="name" label="Your name" autoComplete="name" />
+                <Field
+                  name="name"
+                  label="Your name"
+                  autoComplete="name"
+                  error={fieldErrors.name}
+                />
               )}
               {mode !== "reset" && (
                 <Field
@@ -148,6 +170,7 @@ export default function Auth({ mode }) {
                   label="Email"
                   type="email"
                   autoComplete="email"
+                  error={fieldErrors.email}
                 />
               )}
               {mode !== "forgot" && (
@@ -158,11 +181,24 @@ export default function Auth({ mode }) {
                   autoComplete={
                     mode === "login" ? "current-password" : "new-password"
                   }
+                  minLength={mode === "login" ? undefined : 8}
+                  maxLength={128}
                   hint={
                     mode === "signup" || mode === "reset"
-                      ? "At least 10 characters"
+                      ? "8 to 128 characters"
                       : undefined
                   }
+                  error={fieldErrors.password}
+                />
+              )}
+              {(mode === "signup" || mode === "reset") && (
+                <Field
+                  name="confirmPassword"
+                  label="Confirm password"
+                  type="password"
+                  autoComplete="new-password"
+                  maxLength={128}
+                  error={fieldErrors.confirmPassword}
                 />
               )}{" "}
               {mode === "login" && (
@@ -173,7 +209,7 @@ export default function Auth({ mode }) {
               )}
               {error && (
                 <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-600">
-                  {error}
+                  {fieldErrors.form || error}
                 </p>
               )}
               <Button type="submit" loading={loading} className="w-full">
@@ -211,14 +247,64 @@ export default function Auth({ mode }) {
     </div>
   );
 }
-function Field({ label, hint, ...props }) {
+function Field({ label, hint, error, type, ...props }) {
+  const [visible, setVisible] = useState(false);
+  const inputType = type === "password" && visible ? "text" : type;
+  const describedBy = error ? `${props.name}-error` : undefined;
   return (
     <label className="block">
       <span className="mb-1.5 flex justify-between text-sm font-semibold">
         {label}
         {hint && <small className="font-normal text-slate-400">{hint}</small>}
       </span>
-      <input required className="field" {...props} />
+      <span className="relative block">
+        <input
+          required
+          className={`field ${error ? "border-rose-500 focus:border-rose-500" : ""} ${type === "password" ? "pr-11" : ""}`}
+          type={inputType}
+          aria-invalid={Boolean(error)}
+          aria-describedby={describedBy}
+          {...props}
+        />
+        {type === "password" && (
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-violet/10"
+            onClick={() => setVisible((current) => !current)}
+            aria-label={visible ? "Hide password" : "Show password"}
+          >
+            {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        )}
+      </span>
+      {error && (
+        <small id={describedBy} className="mt-1.5 block text-sm text-rose-600">
+          {error}
+        </small>
+      )}
     </label>
   );
+}
+
+function validateAuthForm(mode, form, params) {
+  const errors = {};
+  const email = String(form.get("email") || "").trim();
+  const password = String(form.get("password") || "");
+  const confirmPassword = String(form.get("confirmPassword") || "");
+  if (mode === "signup" && !String(form.get("name") || "").trim())
+    errors.name = "Name is required.";
+  if (mode !== "reset" && !/^\S+@\S+\.\S+$/.test(email))
+    errors.email = "Enter a valid email address.";
+  if (mode !== "forgot") {
+    if (!password) errors.password = "Password is required.";
+    else if (mode !== "login" && password.length < 8)
+      errors.password = "Password must contain at least 8 characters.";
+    else if (password.length > 128)
+      errors.password = "Password must contain 128 characters or fewer.";
+  }
+  if ((mode === "signup" || mode === "reset") && password !== confirmPassword)
+    errors.confirmPassword = "Passwords do not match.";
+  if (mode === "reset" && !params.get("token"))
+    errors.form = "Reset link is missing or expired.";
+  return errors;
 }

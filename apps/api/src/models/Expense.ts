@@ -32,6 +32,16 @@ const expenseSchema = new Schema(
     expenseDate: { type: Date, required: true },
     notes: { type: String, trim: true, maxlength: 1000, default: "" },
     receiptUrl: String,
+    receiptAttachmentId: { type: Schema.Types.ObjectId, ref: "Attachment" },
+    source: {
+      type: String,
+      enum: ["manual", "recurring"],
+      default: "manual",
+      index: true,
+    },
+    recurringExpenseId: { type: Schema.Types.ObjectId, ref: "RecurringExpense" },
+    occurrenceDate: Date,
+    occurrenceKey: String,
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     deletedAt: Date,
@@ -41,5 +51,9 @@ const expenseSchema = new Schema(
 expenseSchema.index({ groupId: 1, expenseDate: -1 });
 expenseSchema.index({ groupId: 1, category: 1 });
 expenseSchema.index({ groupId: 1, paidBy: 1 });
+expenseSchema.index(
+  { recurringExpenseId: 1, occurrenceKey: 1 },
+  { unique: true, sparse: true },
+);
 export type ExpenseDocument = InferSchemaType<typeof expenseSchema>;
 export const Expense = model("Expense", expenseSchema);

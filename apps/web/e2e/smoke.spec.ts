@@ -28,3 +28,29 @@ test("marketing navigation and interactive controls work", async ({ page }) => {
     page.getByRole("heading", { name: /Split bills/i }),
   ).toBeVisible();
 });
+
+test("public routes render without dead ends", async ({ page }) => {
+  const routes = [
+    ["/login", /Welcome back/i],
+    ["/signup", /Make money simple/i],
+    ["/forgot-password", /Reset your password/i],
+    ["/reset-password", /Choose a new password/i],
+    ["/privacy", /Your data, treated with care/i],
+    ["/terms", /Simple rules for a shared space/i],
+    ["/missing-page", /This page moved on/i],
+  ];
+
+  for (const [path, heading] of routes) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+  }
+});
+
+test("landing page does not overflow on narrow phones", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto("/");
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
+});

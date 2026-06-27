@@ -15,14 +15,16 @@ import {
 import { motion } from "motion/react";
 import {
   ArrowUpRight,
+  CalendarClock,
   CreditCard,
   Plus,
   ReceiptText,
   Users,
+  WalletCards,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { compactMoney, money, relativeTime } from "../lib/format";
+import { compactMoney, dateLabel, money, relativeTime } from "../lib/format";
 import { Button, Card, Empty, Metric, Skeleton } from "../components/ui";
 import { useAuth } from "../providers/auth";
 import { useTheme } from "../providers/theme";
@@ -287,6 +289,71 @@ export default function Dashboard() {
                   No category data yet.
                 </div>
               )}
+            </Card>
+          </section>
+          <section className="grid gap-5 lg:grid-cols-2">
+            <Card className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold tracking-tight">Budgets</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Current month progress.
+                  </p>
+                </div>
+                <WalletCards className="size-5 text-violet" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {(data.budgetStatus ?? []).slice(0, 3).map((row) => (
+                  <div key={row.budget._id}>
+                    <div className="flex items-center justify-between text-sm">
+                      <b>{row.budget.category || "Group budget"}</b>
+                      <span className={row.isOverBudget ? "text-coral" : "text-slate-500"}>
+                        {row.percentageUsed}%
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+                      <div
+                        className={`h-full rounded-full ${row.isOverBudget ? "bg-coral" : row.nearLimit ? "bg-amber-500" : "bg-mint"}`}
+                        style={{ width: `${Math.min(row.percentageUsed, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {!(data.budgetStatus ?? []).length && (
+                  <p className="rounded-xl bg-violet/5 p-4 text-sm text-slate-500">
+                    No budgets set for this month.
+                  </p>
+                )}
+              </div>
+            </Card>
+            <Card className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold tracking-tight">Recurring due</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Upcoming generated expenses.
+                  </p>
+                </div>
+                <CalendarClock className="size-5 text-violet" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {(data.recurringDue ?? []).slice(0, 4).map((rule) => (
+                  <div key={rule._id} className="flex items-center justify-between rounded-xl bg-violet/5 p-3">
+                    <span className="min-w-0">
+                      <b className="block truncate text-sm">{rule.title}</b>
+                      <small className="text-xs text-slate-500">
+                        {rule.groupId?.name} - {dateLabel(rule.nextOccurrenceDate)}
+                      </small>
+                    </span>
+                    <b className="text-sm">{money(rule.amountMinor, rule.currency)}</b>
+                  </div>
+                ))}
+                {!(data.recurringDue ?? []).length && (
+                  <p className="rounded-xl bg-violet/5 p-4 text-sm text-slate-500">
+                    Nothing due in the next week.
+                  </p>
+                )}
+              </div>
             </Card>
           </section>
           <section className="grid gap-5 lg:grid-cols-2">

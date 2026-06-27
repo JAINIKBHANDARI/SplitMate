@@ -3,11 +3,14 @@ import crypto from "node:crypto";
 import { Group } from "../models/Group.js";
 import { Membership } from "../models/Membership.js";
 import { User } from "../models/User.js";
+import { Invitation } from "../models/Invitation.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
 import { ok } from "../lib/http.js";
 import { assertManager, membershipFor } from "../services/access.service.js";
 import { recordActivity } from "../services/activity.service.js";
 import { calculateGroupBalances } from "../services/balance.service.js";
+import { actionEmail, sendEmail } from "../services/email.service.js";
+import { hashOpaqueToken, hashPassword } from "../services/auth.service.js";
 
 const groupFilter = (req: Request) => ({ _id: String(req.params.groupId) });
 export const listGroups = asyncHandler(async (req, res) => {
@@ -62,7 +65,7 @@ export const getGroup = asyncHandler(async (req, res) => {
     Group.findOne(groupFilter(req)),
     Membership.find({ groupId: id, status: { $ne: "removed" } }).populate(
       "userId",
-      "name email avatarColor",
+      "name email avatarColor isGuest upiId",
     ),
     calculateGroupBalances(id),
   ]);
@@ -142,13 +145,138 @@ export const inviteMember = asyncHandler(async (req, res) => {
     "member.invited",
     `Invited ${req.body.email}`,
   );
-  ok(res, { membership, inviteCode: group.inviteCode }, 201);
+  const token = crypto.randomBytes(32).toString("base64url");
+  const invitation = await Invitation.create({
+    groupId: group._id,
+    invitedBy: req.auth!.userId,
+    email: req.body.email,
+    tokenHash: hashOpaqueToken(token),
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+  const inviteUrl = `${process.env.CLIENT_URL ?? process.env.CLIENT_ORIGIN ?? "http://localhost:5173"}/app/groups/join/${token}`;
+  const email = actionEmail(`You have been invited to join ${group.name} on SplitMate.`, inviteUrl);
+  await sendEmail({
+    to: req.body.email,
+    subject: `Join ${group.name} on SplitMate`,
+    ...email,
+  });
+  ok(res, { membership, invitation, inviteCode: token, inviteUrl }, 201);
+});
+export const addGuestMember = asyncHandler(async (req, res) => {
+  const id = String(req.params.groupId);
+  const actor = await membershipFor(req, id);
+  assertManager(actor.role);
+  const group = await Group.findById(id);
+  if (!group) throw new AppError(404, "Group not found.", "NOT_FOUND");
+  const email = req.body.email || `guest-${crypto.randomUUID()}@splitmate.local`;
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    const existingMembership = await Membership.findOne({
+      groupId: id,
+      userId: existingUser._id,
+      status: { $ne: "removed" },
+    });
+    if (existingMembership)
+      throw new AppError(409, "That guest is already in this group.", "ALREADY_MEMBER");
+  }
+  const guest =
+    existingUser ??
+    (await User.create({
+      name: req.body.name,
+      email,
+      phone: req.body.phone,
+      isGuest: true,
+      passwordHash: await hashPassword(crypto.randomBytes(32).toString("hex")),
+      avatarColor: "#64748b",
+      defaultCurrency: group.currency,
+    }));
+  const membership = await Membership.create({
+    groupId: id,
+    userId: guest._id,
+    email: req.body.email || undefined,
+    phone: req.body.phone,
+    displayName: req.body.name,
+    memberType: "guest",
+    status: "active",
+    invitedBy: req.auth!.userId,
+    joinedAt: new Date(),
+  });
+  await recordActivity(
+    id,
+    req.auth!.userId,
+    "guest.added",
+    `Added guest ${req.body.name}`,
+    { membershipId: String(membership._id) },
+  );
+  ok(res, { membership: await membership.populate("userId", "name email avatarColor isGuest") }, 201);
+});
+export const listInvitations = asyncHandler(async (req, res) => {
+  const id = String(req.params.groupId);
+  const actor = await membershipFor(req, id);
+  assertManager(actor.role);
+  const invitations = await Invitation.find({ groupId: id })
+    .populate("invitedBy acceptedBy", "name email avatarColor")
+    .sort({ createdAt: -1 });
+  ok(res, { invitations });
+});
+export const revokeInvitation = asyncHandler(async (req, res) => {
+  const id = String(req.params.groupId);
+  const actor = await membershipFor(req, id);
+  assertManager(actor.role);
+  const invitation = await Invitation.findOneAndUpdate(
+    { _id: String(req.params.invitationId), groupId: id, status: "pending" },
+    { status: "revoked", revokedAt: new Date() },
+    { new: true },
+  );
+  if (!invitation)
+    throw new AppError(404, "Invitation not found.", "NOT_FOUND");
+  await recordActivity(id, req.auth!.userId, "invite.revoked", "Revoked an invite");
+  ok(res, { invitation });
+});
+export const previewInvite = asyncHandler(async (req, res) => {
+  const token = String(req.params.inviteCode);
+  const invitation = await Invitation.findOne({
+    tokenHash: hashOpaqueToken(token),
+    status: "pending",
+    expiresAt: { $gt: new Date() },
+  }).populate("groupId", "name description currency");
+  if (!invitation) {
+    const group = await Group.findOne({
+      inviteCode: token,
+      archived: false,
+    }).select("name description currency");
+    if (group)
+      return ok(res, {
+        invite: {
+          id: token,
+          expiresAt: null,
+          group,
+        },
+      });
+    throw new AppError(404, "That invite is invalid or expired.", "INVALID_INVITE");
+  }
+  ok(res, {
+    invite: {
+      id: String(invitation._id),
+      email: invitation.email,
+      expiresAt: invitation.expiresAt,
+      group: invitation.groupId,
+    },
+  });
 });
 export const joinGroup = asyncHandler(async (req, res) => {
-  const group = await Group.findOne({
-    inviteCode: String(req.params.inviteCode),
-    archived: false,
+  const token = String(req.params.inviteCode);
+  const invitation = await Invitation.findOne({
+    tokenHash: hashOpaqueToken(token),
+    status: "pending",
+    expiresAt: { $gt: new Date() },
   });
+  const group = invitation
+    ? await Group.findOne({ _id: invitation.groupId, archived: false })
+    : await Group.findOne({
+        inviteCode: token,
+        archived: false,
+      });
   if (!group)
     throw new AppError(
       404,
@@ -164,6 +292,12 @@ export const joinGroup = asyncHandler(async (req, res) => {
     await Membership.updateOne({ _id: existing._id }, { status: "active" });
   else
     await Membership.create({ groupId: group._id, userId: req.auth!.userId });
+  if (invitation) {
+    invitation.status = "accepted";
+    invitation.acceptedAt = new Date();
+    invitation.acceptedBy = req.auth!.userId as any;
+    await invitation.save();
+  }
   await recordActivity(
     String(group._id),
     req.auth!.userId,

@@ -29,8 +29,8 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AuthProvider>
-          <BrowserRouter>
+        <BrowserRouter>
+          <AuthProvider>
             <Suspense fallback={<Loading />}>
               <Routes>
                 <Route path="/" element={<Landing />} />
@@ -62,8 +62,8 @@ createRoot(document.getElementById("root")).render(
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
-          </BrowserRouter>
-        </AuthProvider>
+          </AuthProvider>
+        </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,

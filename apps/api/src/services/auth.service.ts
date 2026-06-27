@@ -1,6 +1,6 @@
-import argon2 from "argon2";
+import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { RefreshToken, PasswordResetToken } from "../models/Auth.js";
 
@@ -8,36 +8,32 @@ const issuer = "splitmate-api";
 const audience = "splitmate-web";
 type Claims = { sub: string; jti?: string };
 export const hashPassword = (password: string) =>
-  argon2.hash(password, {
-    type: argon2.argon2id,
-    memoryCost: 19456,
-    timeCost: 2,
-    parallelism: 1,
-  });
+  bcrypt.hash(password, 12);
 export const verifyPassword = (hash: string, password: string) =>
-  argon2.verify(hash, password);
+  bcrypt.compare(password, hash);
 export const hashOpaqueToken = (token: string) =>
   crypto.createHash("sha256").update(token).digest("hex");
 
 export async function createSession(userId: string, remember = false) {
   const jti = crypto.randomUUID();
   const access = jwt.sign({ sub: userId }, env.JWT_ACCESS_SECRET, {
-    expiresIn: "15m",
+    expiresIn: env.ACCESS_TOKEN_EXPIRES_IN as SignOptions["expiresIn"],
     issuer,
     audience,
   });
   const refresh = jwt.sign({ sub: userId, jti }, env.JWT_REFRESH_SECRET, {
-    expiresIn: remember ? "30d" : "7d",
+    expiresIn: (remember ? "30d" : env.REFRESH_TOKEN_EXPIRES_IN) as SignOptions["expiresIn"],
     issuer,
     audience,
   });
   const decoded = jwt.decode(refresh) as { exp: number };
   await RefreshToken.create({
     userId,
-    tokenId: jti,
+    tokenId: hashOpaqueToken(jti),
+    tokenHash: hashOpaqueToken(refresh),
     expiresAt: new Date(decoded.exp * 1000),
   });
-  return { access, refresh };
+  return { access, refresh, userId };
 }
 export function verifyAccess(token: string) {
   return jwt.verify(token, env.JWT_ACCESS_SECRET, {
@@ -52,10 +48,16 @@ export async function rotateSession(token: string, remember = false) {
   }) as jwt.JwtPayload & Claims;
   if (!payload.sub || !payload.jti) throw new Error("Invalid refresh token");
   const stored = await RefreshToken.findOne({
-    tokenId: payload.jti,
+    tokenHash: hashOpaqueToken(token),
     userId: payload.sub,
-    revokedAt: { $exists: false },
   });
+  if (stored?.revokedAt) {
+    await RefreshToken.updateMany(
+      { userId: payload.sub, revokedAt: { $exists: false } },
+      { revokedAt: new Date() },
+    );
+    throw new Error("Refresh token reuse detected");
+  }
   if (!stored || stored.expiresAt < new Date())
     throw new Error("Refresh token expired");
   stored.revokedAt = new Date();
@@ -71,12 +73,18 @@ export async function revokeSession(token?: string) {
     }) as jwt.JwtPayload & Claims;
     if (payload.jti)
       await RefreshToken.updateOne(
-        { tokenId: payload.jti },
+        { tokenHash: hashOpaqueToken(token) },
         { revokedAt: new Date() },
       );
   } catch {
     /* token is already unusable */
   }
+}
+export async function revokeAllSessions(userId: string) {
+  await RefreshToken.updateMany(
+    { userId, revokedAt: { $exists: false } },
+    { revokedAt: new Date() },
+  );
 }
 export async function createPasswordReset(userId: string) {
   await PasswordResetToken.deleteMany({ userId });

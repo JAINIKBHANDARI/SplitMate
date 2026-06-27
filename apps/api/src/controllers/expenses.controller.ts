@@ -2,6 +2,7 @@ import { calculateSplit, SplitValidationError } from "@splitmate/shared";
 import { Expense } from "../models/Expense.js";
 import { Group } from "../models/Group.js";
 import { Membership } from "../models/Membership.js";
+import { RecurringExpense } from "../models/RecurringExpense.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
 import { ok } from "../lib/http.js";
 import { membershipFor } from "../services/access.service.js";
@@ -72,6 +73,22 @@ export const createExpense = asyncHandler(async (req, res) => {
     createdBy: req.auth!.userId,
     updatedBy: req.auth!.userId,
   });
+  let recurring = null;
+  if (req.body.recurring?.enabled) {
+    recurring = await RecurringExpense.create({
+      ...payload,
+      groupId: id,
+      frequency: req.body.recurring.frequency,
+      interval: req.body.recurring.interval,
+      startDate: req.body.recurring.startDate,
+      endDate: req.body.recurring.endDate,
+      nextOccurrenceDate:
+        req.body.recurring.nextOccurrenceDate ?? req.body.recurring.startDate,
+      reminderDaysBefore: req.body.recurring.reminderDaysBefore,
+      createdBy: req.auth!.userId,
+      updatedBy: req.auth!.userId,
+    });
+  }
   await recordActivity(
     id,
     req.auth!.userId,
@@ -79,7 +96,7 @@ export const createExpense = asyncHandler(async (req, res) => {
     `Added ${expense.title}`,
     { expenseId: String(expense._id) },
   );
-  ok(res, { expense }, 201);
+  ok(res, { expense, recurring }, 201);
 });
 export const updateExpense = asyncHandler(async (req, res) => {
   const id = String(req.params.groupId);

@@ -9,6 +9,8 @@ const activitySchema = new Schema(
     },
     actorId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     type: { type: String, required: true },
+    targetType: { type: String, trim: true, maxlength: 80 },
+    targetId: Schema.Types.ObjectId,
     message: { type: String, required: true },
     meta: { type: Schema.Types.Mixed, default: {} },
   },
